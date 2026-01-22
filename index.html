@@ -3,18 +3,19 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>LAZARO WORLD — Pixel City (GTA1-ish)</title>
+<title>LAZARO WORLD — Pixel GTA</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#0b0f1e;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  html,body{margin:0;height:100%;overflow:hidden;background:#081021;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
   canvas{width:100vw;height:100vh;display:block;touch-action:none;image-rendering:pixelated}
+
   .ui{position:fixed;inset:0;pointer-events:none;color:#fff}
   .top{position:fixed;left:12px;right:12px;top:12px;padding:10px 12px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     font-weight:900;letter-spacing:.6px}
-  .hud{position:fixed;left:12px;bottom:12px;max-width:min(680px,78vw);padding:10px 12px;border-radius:16px;
+  .hud{position:fixed;left:12px;bottom:12px;max-width:min(720px,78vw);padding:10px 12px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     font-size:12px;line-height:1.35}
-  .mini{position:fixed;right:12px;bottom:12px;width:150px;height:150px;border-radius:16px;
+  .mini{position:fixed;right:12px;bottom:12px;width:160px;height:160px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     overflow:hidden}
 
@@ -37,9 +38,9 @@
 <canvas id="c"></canvas>
 
 <div class="ui">
-  <div class="top" id="top">LAZARO WORLD — Pixel City</div>
+  <div class="top" id="top">LAZARO WORLD — Pixel GTA</div>
   <div class="hud" id="hud"></div>
-  <canvas class="mini" id="mini" width="150" height="150"></canvas>
+  <canvas class="mini" id="mini" width="160" height="160"></canvas>
 
   <div id="joy"><div id="knob"></div></div>
   <div class="mBtn" id="respawn">RESPAWN</div>
@@ -68,179 +69,47 @@
   addEventListener("resize", resize); resize();
 
   // =========================
-  // World (tile + building lots)
+  // Helpers
+  // =========================
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const randi=(a,b)=>(a+Math.random()*(b-a+1))|0;
+
+  // Pixel crisp helpers
+  function rectPix(x,y,w,h){ ctx.fillRect(x|0,y|0,w|0,h|0); }
+  function circlePix(x,y,r){ ctx.beginPath(); ctx.arc((x|0),(y|0),r,0,Math.PI*2); ctx.fill(); }
+
+  // =========================
+  // Palette (GTA1-ish)
+  // =========================
+  const PAL = {
+    sky:"#081021",
+    grassA:"#163021", grassB:"#1a3a26",
+    roadA:"#2b2f3a",  roadB:"#242836",
+    sideA:"#3a3f4b",  sideB:"#343a45",
+    waterA:"#0b2a4a", waterB:"#083055",
+    shadow:"rgba(0,0,0,0.26)",
+    shadowDeep:"rgba(0,0,0,0.40)",
+    neonA:"rgba(60,255,210,0.9)",
+    neonB:"rgba(255,77,109,0.9)",
+    text:"rgba(255,255,255,0.95)",
+  };
+
+  // =========================
+  // World (tile map + lots)
   // =========================
   const TILE = 16;
-  const MAP_W = 240, MAP_H = 170;
+  const MAP_W = 260, MAP_H = 180;
   const WORLD_W = MAP_W*TILE, WORLD_H = MAP_H*TILE;
 
-  // tiles: 0 grass, 1 road, 2 sidewalk, 3 water, 4 building footprint (solid)
+  // tiles: 0 grass, 1 road, 2 sidewalk, 3 water, 4 building footprint, 5 alley (like dirt)
   const map = new Uint8Array(MAP_W*MAP_H);
   const idx = (x,y)=> y*MAP_W + x;
   const inb = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
-  // building lots with height + style
-  const buildings = []; // {x,y,w,h,height,roof,wall,detail,solidRect}
-
-  // style palette (GTA1-ish)
-  const PAL = {
-    sky:"#0b0f1e",
-    grass:"#163021",
-    grass2:"#1a3a26",
-    road:"#2b2f3a",
-    road2:"#242836",
-    sidewalk:"#3a3f4b",
-    sidewalk2:"#343a45",
-    water:"#0b2a4a",
-    water2:"#083055",
-    shadow:"rgba(0,0,0,0.25)",
-    shadowDeep:"rgba(0,0,0,0.38)",
-    neonA:"rgba(60,255,210,0.9)",
-    neonB:"rgba(255,77,109,0.9)",
-  };
-
-  function rand(a,b){ return a + Math.random()*(b-a); }
-  function randi(a,b){ return (a + Math.random()*(b-a+1))|0; }
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-
-  // Generate: roads grid, docks/water, sidewalks, tall building lots
-  function gen(){
-    map.fill(0);
-    buildings.length = 0;
-
-    // water band on east + docks
-    for(let y=0;y<MAP_H;y++){
-      for(let x=MAP_W-34;x<MAP_W;x++){
-        map[idx(x,y)] = 3;
-      }
-    }
-    // docks wood planks near water
-    for(let y=10;y<MAP_H-10;y++){
-      for(let x=MAP_W-40;x<MAP_W-34;x++){
-        if((x+y)%2===0) map[idx(x,y)] = 2; // use sidewalk as dock base
-      }
-    }
-
-    // roads grid (wider + GTA blocks)
-    for(let y=0;y<MAP_H;y++){
-      for(let x=0;x<MAP_W-34;x++){
-        const major = (x%14===0) || (y%14===0);
-        const minor = (x%28===0) || (y%28===0);
-        if(major){
-          map[idx(x,y)] = 1;
-          if(minor){
-            // widen intersections
-            if(inb(x+1,y)) map[idx(x+1,y)]=1;
-            if(inb(x,y+1)) map[idx(x,y+1)]=1;
-          }
-        }
-      }
-    }
-
-    // sidewalks around roads
-    for(let y=1;y<MAP_H-1;y++){
-      for(let x=1;x<MAP_W-35;x++){
-        if(map[idx(x,y)]===0){
-          const nearRoad =
-            map[idx(x+1,y)]===1 || map[idx(x-1,y)]===1 || map[idx(x,y+1)]===1 || map[idx(x,y-1)]===1;
-          if(nearRoad) map[idx(x,y)] = 2;
-        }
-      }
-    }
-
-    // parks
-    for(let y=24;y<46;y++){
-      for(let x=22;x<58;x++){
-        map[idx(x,y)] = 0;
-      }
-    }
-
-    // building lots: fill empty block interiors with rectangles, leave alleys
-    const FOOTPRINT_TRIES = 5200;
-    for(let i=0;i<FOOTPRINT_TRIES;i++){
-      const x = randi(3, MAP_W-40);
-      const y = randi(3, MAP_H-4);
-      if(map[idx(x,y)]!==0) continue;
-
-      // keep away from roads/sidewalk a bit
-      let near = false;
-      for(let oy=-1; oy<=1; oy++){
-        for(let ox=-1; ox<=1; ox++){
-          if(!inb(x+ox,y+oy)) continue;
-          const t = map[idx(x+ox,y+oy)];
-          if(t===1 || t===2) near=true;
-        }
-      }
-      if(near) continue;
-
-      const w = randi(3, 10);
-      const h = randi(3, 10);
-
-      // alley chance: skip if too solid cluster
-      if(Math.random() < 0.12) continue;
-
-      // ensure rectangle fits and is empty land
-      let ok = true;
-      for(let yy=y; yy<y+h; yy++){
-        for(let xx=x; xx<x+w; xx++){
-          if(!inb(xx,yy) || map[idx(xx,yy)]!==0) { ok=false; break; }
-        }
-        if(!ok) break;
-      }
-      if(!ok) continue;
-
-      // mark as building footprint (solid)
-      for(let yy=y; yy<y+h; yy++){
-        for(let xx=x; xx<x+w; xx++){
-          map[idx(xx,yy)] = 4;
-        }
-      }
-
-      // building style & height (GTA1-ish tall)
-      const height = randi(14, 52); // pixels of "fake height"
-      const roofHue = randi(0, 3);
-      const roof = roofHue===0 ? "#2a2d3a" : roofHue===1 ? "#2b2340" : roofHue===2 ? "#3a2b35" : "#243245";
-      const wall = roofHue===0 ? "#1f2230" : roofHue===1 ? "#241b38" : roofHue===2 ? "#2c1e2a" : "#1a2434";
-      const detail = Math.random()<0.55 ? "windows" : (Math.random()<0.5 ? "neon" : "blank");
-
-      buildings.push({
-        x:x*TILE, y:y*TILE, w:w*TILE, h:h*TILE,
-        height, roof, wall, detail
-      });
-    }
-
-    // make some “tower” buildings bigger
-    for(let i=0;i<18;i++){
-      const bx = randi(20, MAP_W-70);
-      const by = randi(10, MAP_H-30);
-      const w = randi(10, 18);
-      const h = randi(10, 18);
-      let ok=true;
-      for(let yy=by; yy<by+h; yy++){
-        for(let xx=bx; xx<bx+w; xx++){
-          if(!inb(xx,yy) || map[idx(xx,yy)]===3) ok=false;
-        }
-      }
-      if(!ok) continue;
-
-      // clear and place footprint
-      for(let yy=by; yy<by+h; yy++){
-        for(let xx=bx; xx<bx+w; xx++){
-          if(map[idx(xx,yy)]===0) map[idx(xx,yy)] = 4;
-          if(map[idx(xx,yy)]===4) map[idx(xx,yy)] = 4;
-          if(map[idx(xx,yy)]===2) map[idx(xx,yy)] = 2;
-          if(map[idx(xx,yy)]===1) map[idx(xx,yy)] = 1;
-        }
-      }
-      buildings.push({
-        x:bx*TILE, y:by*TILE, w:w*TILE, h:h*TILE,
-        height: randi(40, 86),
-        roof:"#2a2d3a", wall:"#151a26",
-        detail: "windows"
-      });
-    }
-  }
-  gen();
+  const buildings = [];  // {x,y,w,h,height,roof,wall,detail,lift}
+  const lamps = [];      // street lights
+  const roadNodes = [];  // traffic waypoints {x,y}
 
   function tileAt(px,py){
     const tx=(px/TILE)|0, ty=(py/TILE)|0;
@@ -249,35 +118,196 @@
   }
   function solidAt(px,py){
     const t = tileAt(px,py);
-    return (t===4 || t===3);
+    return (t===4 || t===3); // buildings & water solid
   }
+
+  function gen(){
+    map.fill(0);
+    buildings.length=0;
+    lamps.length=0;
+    roadNodes.length=0;
+
+    // Water / docks on east
+    for(let y=0;y<MAP_H;y++){
+      for(let x=MAP_W-38;x<MAP_W;x++){
+        map[idx(x,y)] = 3;
+      }
+    }
+    // Docks strip
+    for(let y=10;y<MAP_H-10;y++){
+      for(let x=MAP_W-45;x<MAP_W-38;x++){
+        map[idx(x,y)] = 2;
+      }
+    }
+
+    // Road grid (major/minor)
+    const major = 16, minor = 32;
+    for(let y=0;y<MAP_H;y++){
+      for(let x=0;x<MAP_W-38;x++){
+        if(x%major===0 || y%major===0) map[idx(x,y)] = 1;
+        if(x%minor===0 || y%minor===0){
+          // widen
+          if(inb(x+1,y)) map[idx(x+1,y)] = 1;
+          if(inb(x,y+1)) map[idx(x,y+1)] = 1;
+        }
+      }
+    }
+
+    // Sidewalks around roads
+    for(let y=1;y<MAP_H-1;y++){
+      for(let x=1;x<MAP_W-39;x++){
+        if(map[idx(x,y)]===0){
+          const nearRoad =
+            map[idx(x+1,y)]===1 || map[idx(x-1,y)]===1 || map[idx(x,y+1)]===1 || map[idx(x,y-1)]===1;
+          if(nearRoad) map[idx(x,y)] = 2;
+        }
+      }
+    }
+
+    // Parks
+    for(let y=24;y<50;y++){
+      for(let x=22;x<62;x++){
+        map[idx(x,y)] = 0;
+      }
+    }
+
+    // Alleys (thin paths inside blocks)
+    for(let y=10;y<MAP_H-10;y++){
+      for(let x=10;x<MAP_W-55;x++){
+        if(map[idx(x,y)]===0 && Math.random()<0.013){
+          const len=randi(10,35);
+          const dir=Math.random()<0.5?0:1; // 0 horizontal, 1 vertical
+          for(let i=0;i<len;i++){
+            const xx = x + (dir===0?i:0);
+            const yy = y + (dir===1?i:0);
+            if(!inb(xx,yy)) break;
+            if(map[idx(xx,yy)]===0) map[idx(xx,yy)] = 5;
+          }
+        }
+      }
+    }
+
+    // Building lots
+    const lotTries = 7800;
+    for(let i=0;i<lotTries;i++){
+      const x = randi(3, MAP_W-50);
+      const y = randi(3, MAP_H-4);
+      const base = map[idx(x,y)];
+      if(base!==0 && base!==5) continue;
+
+      // keep away from roads
+      let near=false;
+      for(let oy=-1; oy<=1; oy++){
+        for(let ox=-1; ox<=1; ox++){
+          if(!inb(x+ox,y+oy)) continue;
+          const t = map[idx(x+ox,y+oy)];
+          if(t===1||t===2) near=true;
+        }
+      }
+      if(near) continue;
+
+      const w = randi(3, 12);
+      const h = randi(3, 12);
+
+      let ok=true;
+      for(let yy=y; yy<y+h; yy++){
+        for(let xx=x; xx<x+w; xx++){
+          if(!inb(xx,yy)) { ok=false; break; }
+          const t = map[idx(xx,yy)];
+          if(!(t===0 || t===5)) { ok=false; break; }
+        }
+        if(!ok) break;
+      }
+      if(!ok) continue;
+
+      // mark footprint
+      for(let yy=y; yy<y+h; yy++){
+        for(let xx=x; xx<x+w; xx++){
+          map[idx(xx,yy)] = 4;
+        }
+      }
+
+      const height = randi(18, 68);
+      const style = randi(0, 4);
+      const roof = style===0 ? "#2a2d3a" :
+                   style===1 ? "#2b2340" :
+                   style===2 ? "#3a2b35" :
+                   style===3 ? "#243245" : "#2a2a2a";
+      const wall = style===0 ? "#141a2a" :
+                   style===1 ? "#1b1430" :
+                   style===2 ? "#221220" :
+                   style===3 ? "#111c2c" : "#161616";
+      const detail = (Math.random()<0.62) ? "windows" : (Math.random()<0.5 ? "neon" : "blank");
+      const lift = Math.min(12, (height*0.22)|0);
+
+      buildings.push({ x:x*TILE, y:y*TILE, w:w*TILE, h:h*TILE, height, roof, wall, detail, lift });
+    }
+
+    // Towers
+    for(let i=0;i<22;i++){
+      const bx=randi(25, MAP_W-80), by=randi(12, MAP_H-40);
+      const w=randi(12, 22), h=randi(12, 22);
+      let ok=true;
+      for(let yy=by; yy<by+h; yy++){
+        for(let xx=bx; xx<bx+w; xx++){
+          if(!inb(xx,yy) || map[idx(xx,yy)]===3) ok=false;
+        }
+      }
+      if(!ok) continue;
+      for(let yy=by; yy<by+h; yy++){
+        for(let xx=bx; xx<bx+w; xx++){
+          if(map[idx(xx,yy)]!==3) map[idx(xx,yy)] = 4;
+        }
+      }
+      const height=randi(60, 110);
+      buildings.push({ x:bx*TILE, y:by*TILE, w:w*TILE, h:h*TILE, height, roof:"#2b2f3a", wall:"#0f1422", detail:"windows", lift:Math.min(14,(height*0.22)|0) });
+    }
+
+    // Street lamps along roads
+    for(let y=2;y<MAP_H-2;y++){
+      for(let x=2;x<MAP_W-40;x++){
+        if(map[idx(x,y)]===2 && (x%8===0) && (y%8===0) && Math.random()<0.22){
+          lamps.push({x:x*TILE+8, y:y*TILE+8});
+        }
+      }
+    }
+
+    // Road nodes for traffic (sample road tiles)
+    for(let y=2;y<MAP_H-2;y+=2){
+      for(let x=2;x<MAP_W-40;x+=2){
+        if(map[idx(x,y)]===1 && (x%4===0 || y%4===0)){
+          roadNodes.push({x:x*TILE+8, y:y*TILE+8});
+        }
+      }
+    }
+  }
+  gen();
 
   // =========================
   // Input
   // =========================
   const keys = new Set();
   addEventListener("keydown", e=>{
-    const k = e.key.toLowerCase();
+    const k=e.key.toLowerCase();
     keys.add(k);
     if(k==="e") action();
     if(k==="r") respawn();
     if(k===" ") handbrake=true;
-    if(k==="g") regen(); // optional regenerate city
+    if(k==="g") { gen(); toast("CITY REMIX ✅"); }
   });
   addEventListener("keyup", e=>{
-    const k = e.key.toLowerCase();
+    const k=e.key.toLowerCase();
     keys.delete(k);
     if(k===" ") handbrake=false;
   });
 
-  let pointer = {x:innerWidth/2,y:innerHeight/2};
+  let pointer={x:innerWidth/2,y:innerHeight/2};
   addEventListener("pointermove", e=>{ pointer.x=e.clientX; pointer.y=e.clientY; });
 
   // Mobile joystick
   const joy = document.getElementById("joy");
   const knob = document.getElementById("knob");
   let joyState={id:null,active:false,dx:0,dy:0};
-
   function setKnob(dx,dy){
     const max=46;
     knob.style.transform = `translate(calc(-50% + ${dx*max}px), calc(-50% + ${dy*max}px))`;
@@ -308,38 +338,45 @@
   // =========================
   // Entities
   // =========================
-  const player = { x: 520, y: 520, r: 7, hp:100, money:0, wanted:0, inCar:false };
+  const player = { x:520, y:520, r:7, hp:100, money:0, wanted:0, inCar:false };
+
   const cars = [];
   const cops = [];
+  const particles = [];
 
-  function spawnCar(x,y,style){
-    cars.push({
-      x,y,w:24,h:14,a:0,spd:0,style,
-      health:100,driver:false,
-      skid:0
-    });
-  }
-
-  // better car styles (pixel “sprites” drawn procedurally)
   const CAR_STYLES = [
     { name:"Coupe",  body:"#ff4d6d", roof:"rgba(255,255,255,0.55)", trim:"rgba(0,0,0,0.55)" },
     { name:"Taxi",   body:"#ffd166", roof:"rgba(255,255,255,0.60)", trim:"rgba(0,0,0,0.55)" },
     { name:"Neon",   body:"#3cffcc", roof:"rgba(255,255,255,0.55)", trim:"rgba(0,0,0,0.55)" },
-    { name:"Police", body:"#3b82f6", roof:"rgba(255,255,255,0.65)", trim:"rgba(0,0,0,0.55)" },
+    { name:"Van",    body:"#9b87f5", roof:"rgba(255,255,255,0.52)", trim:"rgba(0,0,0,0.55)" },
   ];
 
-  // spawn cars mostly on roads
-  for(let i=0;i<26;i++){
+  function spawnCar(x,y,style){
+    cars.push({
+      x,y,w:24,h:14,a:Math.random()*Math.PI*2,spd:0,
+      style, health:100, driver:false, skid:0,
+      ai: true, // traffic AI
+      node: (Math.random()*roadNodes.length)|0
+    });
+  }
+  for(let i=0;i<36;i++){
     const style = CAR_STYLES[i%CAR_STYLES.length];
-    spawnCar(rand(100,WORLD_W-700), rand(100,WORLD_H-100), style);
+    // place near roads
+    const n = roadNodes[(Math.random()*roadNodes.length)|0];
+    spawnCar(n.x+rand(-18,18), n.y+rand(-18,18), style);
   }
 
   function spawnCop(x,y){
-    cops.push({x,y,r:7,spd:120,hp:40});
+    cops.push({x,y,r:7,spd:135,hp:60});
   }
 
-  // Mission marker
-  const mission = { x: 880, y: 300, r: 16, active:true };
+  // Missions: checkpoints chain
+  const missions = [];
+  function newMission(){
+    const n = roadNodes[(Math.random()*roadNodes.length)|0];
+    missions.push({x:n.x,y:n.y,r:18,type:"delivery",t:0});
+  }
+  for(let i=0;i<3;i++) newMission();
 
   // =========================
   // Camera
@@ -370,7 +407,6 @@
     }
     return false;
   }
-
   function moveWithCollide(obj, dx, dy, radius){
     let nx=obj.x+dx, ny=obj.y;
     if(!collidesCircle(nx, ny, radius)) obj.x=nx;
@@ -379,7 +415,7 @@
   }
 
   // =========================
-  // Action / gameplay
+  // Action
   // =========================
   function nearestCar(){
     let best=null, bd=1e9;
@@ -391,30 +427,37 @@
   }
 
   function action(){
-    // mission interact
-    const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
-    if(mission.active && dM < mission.r+10){
-      mission.active=false;
-      player.money += 250;
-      player.wanted = Math.min(5, player.wanted + 1);
-      toast("MISSION DONE +$250 (Wanted +1)");
-      return;
+    // missions: touch checkpoint
+    for(let i=missions.length-1;i>=0;i--){
+      const m=missions[i];
+      const d=Math.hypot(player.x-m.x, player.y-m.y);
+      if(d < m.r+10){
+        missions.splice(i,1);
+        player.money += 150;
+        player.wanted = Math.min(5, player.wanted + 0.5);
+        toast("DELIVERY COMPLETE +$150 (Wanted +0.5)");
+        newMission();
+        return;
+      }
     }
 
+    // enter/exit car OR chaos
     const {car, dist} = nearestCar();
     if(!player.inCar){
       if(car && dist < 26){
         player.inCar=true;
         car.driver=true;
-        toast("ENTER CAR");
+        car.ai=false;
+        toast(`ENTER ${car.style.name}`);
       } else {
-        player.wanted = Math.min(5, player.wanted + 0.5);
+        player.wanted = Math.min(5, player.wanted + 0.6);
         toast("CHAOS! (Wanted up)");
       }
     } else {
       for(const car of cars){
         if(car.driver){
           car.driver=false;
+          car.ai=true;
           player.inCar=false;
           player.x = car.x + 28;
           player.y = car.y;
@@ -428,30 +471,38 @@
   function respawn(){
     player.x=520; player.y=520; player.hp=100;
     player.wanted = Math.max(0, player.wanted-1);
-    for(const car of cars) car.driver=false;
+    for(const car of cars){ car.driver=false; if(!car.ai) car.ai=true; }
     player.inCar=false;
     toast("RESPAWN");
   }
 
-  function regen(){
-    gen();
-    toast("CITY REMIX (G)");
+  // =========================
+  // Effects
+  // =========================
+  function spark(x,y, n=10){
+    for(let i=0;i<n;i++){
+      particles.push({
+        x,y, vx:rand(-140,140), vy:rand(-140,140),
+        life:rand(0.15,0.45), hue: (Math.random()<0.5?170:330)
+      });
+    }
   }
 
   // =========================
-  // Render helpers (pixel crisp)
+  // Drawing: Buildings (fake height)
   // =========================
-  function rectPix(x,y,w,h){ ctx.fillRect(x|0,y|0,w|0,h|0); }
-  function strokePix(x,y,w,h){ ctx.strokeRect(x|0,y|0,w|0,h|0); }
-  function circlePix(x,y,r){ ctx.beginPath(); ctx.arc((x|0),(y|0),r,0,Math.PI*2); ctx.fill(); }
+  function shade(hex, amt){
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return `rgb(${clamp(r+amt,0,255)|0},${clamp(g+amt,0,255)|0},${clamp(b+amt,0,255)|0})`;
+  }
 
-  // “fake height” building: draw roof at base, then side faces offset (isometric-ish)
   function drawBuilding(b, t){
-    // shadow direction (fixed) for GTA-ish depth
-    const shx = 0.6, shy = 0.9;
-    const shLen = b.height * 0.9;
+    const shx=0.6, shy=0.9;
+    const shLen=b.height*0.9;
 
-    // long cast shadow
+    // cast shadow
     ctx.fillStyle = PAL.shadowDeep;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y + b.h);
@@ -461,12 +512,11 @@
     ctx.closePath();
     ctx.fill();
 
-    // “raised roof” effect: roof up-left a bit
-    const lift = Math.min(10, (b.height*0.22)|0);
-    const rx = b.x - lift;
-    const ry = b.y - lift;
+    // lifted roof
+    const rx = b.x - b.lift;
+    const ry = b.y - b.lift;
 
-    // side face (right/bottom)
+    // side faces
     ctx.fillStyle = b.wall;
     ctx.beginPath();
     ctx.moveTo(b.x + b.w, b.y);
@@ -476,61 +526,42 @@
     ctx.closePath();
     ctx.fill();
 
+    ctx.fillStyle = shade(b.wall, -12);
     ctx.beginPath();
     ctx.moveTo(b.x, b.y + b.h);
     ctx.lineTo(rx, ry + b.h);
     ctx.lineTo(rx + b.w, ry + b.h);
     ctx.lineTo(b.x + b.w, b.y + b.h);
     ctx.closePath();
-    ctx.fillStyle = shade(b.wall, -10);
     ctx.fill();
 
     // roof
     ctx.fillStyle = b.roof;
     rectPix(rx, ry, b.w, b.h);
 
-    // roof border
-    ctx.strokeStyle = "rgba(0,0,0,0.35)";
-    ctx.lineWidth = 1;
-    strokePix(rx, ry, b.w, b.h);
+    // roof outline
+    ctx.strokeStyle="rgba(0,0,0,0.35)";
+    ctx.lineWidth=1;
+    ctx.strokeRect(rx|0, ry|0, b.w|0, b.h|0);
 
     // details
     if(b.detail==="windows"){
-      // window grid on roof (top-down, GTA1 vibe)
-      const gx = 6, gy = 6;
-      for(let y=ry+3; y<ry+b.h-3; y+=gy){
-        for(let x=rx+3; x<rx+b.w-3; x+=gx){
-          ctx.fillStyle = ((x+y)&8) ? "rgba(255,255,255,0.12)" : "rgba(60,255,210,0.08)";
+      for(let y=ry+3; y<ry+b.h-3; y+=6){
+        for(let x=rx+3; x<rx+b.w-3; x+=6){
+          ctx.fillStyle = ((x+y)&8) ? "rgba(255,255,255,0.10)" : "rgba(60,255,210,0.07)";
           rectPix(x, y, 2, 2);
         }
       }
-      // occasional rooftop unit
-      if(Math.random()<0.004){
-        ctx.fillStyle="rgba(0,0,0,0.25)";
-        rectPix(rx+b.w*0.6, ry+b.h*0.35, 10, 8);
-      }
     } else if(b.detail==="neon"){
       const pulse = 0.6 + 0.4*Math.sin(t*5 + (b.x+b.y)*0.01);
-      ctx.fillStyle = `rgba(255,77,109,${0.18+0.18*pulse})`;
+      ctx.fillStyle = `rgba(255,77,109,${0.16+0.18*pulse})`;
       rectPix(rx+2, ry+2, b.w-4, 2);
       ctx.fillStyle = `rgba(60,255,210,${0.14+0.16*pulse})`;
       rectPix(rx+2, ry+b.h-4, b.w-4, 2);
     }
   }
 
-  function shade(hex, amt){
-    // hex -> slightly darker/lighter
-    // supports #rrggbb only
-    const r = parseInt(hex.slice(1,3),16);
-    const g = parseInt(hex.slice(3,5),16);
-    const b = parseInt(hex.slice(5,7),16);
-    const nr = clamp(r+amt,0,255)|0;
-    const ng = clamp(g+amt,0,255)|0;
-    const nb = clamp(b+amt,0,255)|0;
-    return `rgb(${nr},${ng},${nb})`;
-  }
-
-  // Better car render: body + hood + windshield + lights + wheels + damage
+  // Better car render
   function drawCar(car){
     ctx.save();
     ctx.translate(car.x, car.y);
@@ -540,15 +571,15 @@
     ctx.fillStyle = "rgba(0,0,0,0.28)";
     rectPix(-12, 7, 24, 6);
 
-    // body base
+    // body
     ctx.fillStyle = car.style.body;
     rectPix(-12, -7, 24, 14);
 
-    // hood highlight stripe
+    // hood stripe
     ctx.fillStyle = "rgba(255,255,255,0.10)";
     rectPix(-10, -6, 20, 3);
 
-    // windshield / roof
+    // roof / windshield
     ctx.fillStyle = car.style.roof;
     rectPix(-6, -3, 12, 6);
 
@@ -559,30 +590,34 @@
     rectPix(-11, 6, 6, 3);
     rectPix(5, 6, 6, 3);
 
-    // headlights (front = +x direction because we rotate toward a)
+    // headlights (front)
     ctx.fillStyle = "rgba(255,255,200,0.65)";
     rectPix(10, -5, 2, 3);
     rectPix(10, 2, 2, 3);
 
-    // brake lights when braking / slowing
-    if(handbrake || car.skid>0.2){
+    // brake lights
+    if(handbrake || car.skid>0.25){
       ctx.fillStyle = "rgba(255,77,109,0.85)";
       rectPix(-12, -5, 2, 3);
       rectPix(-12, 2, 2, 3);
     }
 
-    // driver marker
+    // driver dot
     if(car.driver){
       ctx.fillStyle = "rgba(60,255,210,0.95)";
       rectPix(-1, -1, 2, 2);
     }
 
-    // damage scratches
+    // damage
     const dmg = 1 - car.health/100;
     if(dmg>0.2){
-      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillStyle="rgba(0,0,0,0.25)";
       rectPix(-8, -2, 6, 1);
       rectPix(1, 3, 7, 1);
+    }
+    if(dmg>0.6){
+      ctx.fillStyle="rgba(255,255,255,0.10)";
+      rectPix(-2, -6, 4, 1);
     }
 
     ctx.restore();
@@ -605,7 +640,7 @@
     ctx.fillStyle="#3cffcc";
     rectPix(-5, -8, 10, 12);
 
-    // jacket detail
+    // jacket line
     ctx.fillStyle="rgba(0,0,0,0.18)";
     rectPix(-5, -2, 10, 1);
 
@@ -621,8 +656,20 @@
     ctx.restore();
   }
 
+  function drawLamp(l){
+    // soft pool of light
+    ctx.fillStyle="rgba(255,240,190,0.06)";
+    circlePix(l.x, l.y, 18);
+    // pole
+    ctx.fillStyle="rgba(0,0,0,0.35)";
+    rectPix(l.x-1, l.y-8, 2, 10);
+    // bulb
+    ctx.fillStyle="rgba(255,240,190,0.6)";
+    rectPix(l.x-2, l.y-10, 4, 3);
+  }
+
   // =========================
-  // Update loop
+  // Update
   // =========================
   let last=performance.now();
   function tick(now){
@@ -631,20 +678,19 @@
 
     update(dt);
     render(now/1000);
-
     requestAnimationFrame(tick);
   }
 
   function update(dt){
-    // wanted decay
+    // Wanted decay
     player.wanted = Math.max(0, player.wanted - dt*0.03);
 
-    // spawn cops based on wanted
+    // Cops scale
     const targetCops = Math.floor(player.wanted*2);
-    while(cops.length < targetCops) spawnCop(player.x + rand(-300,300), player.y + rand(-300,300));
+    while(cops.length < targetCops) spawnCop(player.x + rand(-320,320), player.y + rand(-320,320));
     while(cops.length > targetCops) cops.pop();
 
-    // movement input
+    // Input vector
     let mx=0,my=0;
     if(keys.has("w")||keys.has("arrowup")) my-=1;
     if(keys.has("s")||keys.has("arrowdown")) my+=1;
@@ -652,86 +698,113 @@
     if(keys.has("d")||keys.has("arrowright")) mx+=1;
     mx += joyState.dx; my += joyState.dy;
 
-    const m = Math.hypot(mx,my);
-    if(m>1e-6){ mx/=m; my/=m; }
+    const mag = Math.hypot(mx,my);
+    if(mag>1e-6){ mx/=mag; my/=mag; }
 
-    // drive or walk
+    // Player movement / Car driving
     if(player.inCar){
       const car = cars.find(c=>c.driver);
       if(car){
+        // steer direction
         let steerX = mx, steerY = my;
 
-        // desktop: steer toward pointer
         if(matchMedia("(pointer:fine)").matches){
           const w = screenToWorld(pointer.x, pointer.y);
           steerX = w.x - car.x;
           steerY = w.y - car.y;
           const d = Math.hypot(steerX, steerY) || 1;
           steerX/=d; steerY/=d;
-        } else {
-          // if no joystick input, keep direction (coast)
-          if(Math.abs(steerX)+Math.abs(steerY) < 0.08){
-            steerX = Math.cos(car.a);
-            steerY = Math.sin(car.a);
-          }
+        } else if(Math.abs(steerX)+Math.abs(steerY) < 0.08){
+          steerX = Math.cos(car.a);
+          steerY = Math.sin(car.a);
         }
 
-        // acceleration + friction
-        const accel = handbrake ? 120 : 520;
+        const accel = handbrake ? 160 : 620;
         car.spd += accel*dt;
-        const friction = handbrake ? (1-7.5*dt) : (1-2.4*dt);
-        car.spd *= friction;
-        car.spd = Math.min(car.spd, handbrake?140:300);
+        car.spd *= handbrake ? (1-7.5*dt) : (1-2.6*dt);
+        car.spd = Math.min(car.spd, handbrake?160:320);
 
-        // steering
         const targetA = Math.atan2(steerY, steerX);
         let da = targetA - car.a;
         while(da>Math.PI) da-=Math.PI*2;
         while(da<-Math.PI) da+=Math.PI*2;
-        car.a += clamp(da, -3.6*dt, 3.6*dt);
+        car.a += clamp(da, -3.8*dt, 3.8*dt);
 
-        // skid amount (for visuals)
-        car.skid = clamp(car.skid + (handbrake?dt*2:-dt*2), 0, 1);
+        car.skid = clamp(car.skid + (handbrake?dt*2.2:-dt*2.2), 0, 1);
 
-        // move with collision
         const dx = Math.cos(car.a)*car.spd*dt;
         const dy = Math.sin(car.a)*car.spd*dt;
 
-        const beforeX=car.x, beforeY=car.y;
+        const bx=car.x, by=car.y;
         moveWithCollide(car, dx, dy, 10);
 
-        // crash damage when blocked
-        const moved = Math.hypot(car.x-beforeX, car.y-beforeY);
-        if(moved < Math.hypot(dx,dy)*0.3 && car.spd>120){
-          car.health = Math.max(0, car.health - 20*dt);
+        // crash
+        const moved = Math.hypot(car.x-bx, car.y-by);
+        if(moved < Math.hypot(dx,dy)*0.3 && car.spd>140){
+          car.health = Math.max(0, car.health - 30*dt);
+          spark(car.x, car.y, 12);
           player.wanted = Math.min(5, player.wanted + 0.08);
         }
 
-        // sidewalk/building chaos
-        const t = tileAt(car.x, car.y);
-        if(t===2) player.wanted = Math.min(5, player.wanted + dt*0.04);
-        if(t===4) player.wanted = Math.min(5, player.wanted + dt*0.07);
+        // tile chaos
+        const tt = tileAt(car.x, car.y);
+        if(tt===2) player.wanted = Math.min(5, player.wanted + dt*0.04);
+        if(tt===4) player.wanted = Math.min(5, player.wanted + dt*0.07);
 
-        // player rides
-        player.x = car.x; player.y = car.y;
+        player.x=car.x; player.y=car.y;
 
         if(car.health<=0){
-          car.health=0;
-          car.driver=false;
+          car.health=0; car.driver=false; car.ai=true;
           player.inCar=false;
           toast("CAR WRECKED 💥");
         }
       }
     } else {
-      const spd = 140;
+      const spd=150;
       moveWithCollide(player, mx*spd*dt, my*spd*dt, player.r);
     }
 
-    // cops chase
+    // Traffic AI for non-driven cars
+    for(const car of cars){
+      if(car.driver) continue;
+      if(!car.ai) continue;
+
+      const node = roadNodes[car.node];
+      if(!node) continue;
+
+      // move toward current node, then pick a new one nearby
+      let dx = node.x - car.x, dy = node.y - car.y;
+      let d = Math.hypot(dx,dy) || 1;
+      dx/=d; dy/=d;
+
+      const targetA = Math.atan2(dy, dx);
+      let da = targetA - car.a;
+      while(da>Math.PI) da-=Math.PI*2;
+      while(da<-Math.PI) da+=Math.PI*2;
+      car.a += clamp(da, -2.8*dt, 2.8*dt);
+
+      const desired = 140;
+      car.spd += (desired - car.spd) * (1 - Math.pow(0.01, dt));
+      car.spd = clamp(car.spd, 60, 170);
+
+      const bx=car.x, by=car.y;
+      moveWithCollide(car, Math.cos(car.a)*car.spd*dt, Math.sin(car.a)*car.spd*dt, 10);
+
+      // if stuck, pick another node
+      if(Math.hypot(car.x-bx, car.y-by) < 1.0){
+        car.node = (Math.random()*roadNodes.length)|0;
+      }
+
+      if(d < 20){
+        // choose next node near current
+        car.node = (car.node + randi(10, 80)) % roadNodes.length;
+      }
+    }
+
+    // Cops chase
     for(const cop of cops){
-      const dx = player.x - cop.x;
-      const dy = player.y - cop.y;
-      const d = Math.hypot(dx,dy) || 1;
+      const dx=player.x-cop.x, dy=player.y-cop.y;
+      const d=Math.hypot(dx,dy) || 1;
       moveWithCollide(cop, (dx/d)*cop.spd*dt, (dy/d)*cop.spd*dt, cop.r);
       if(d<18){
         player.hp = Math.max(0, player.hp - 18*dt);
@@ -739,20 +812,30 @@
       }
     }
 
-    // mission auto-complete
-    if(mission.active){
-      const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
-      if(dM < mission.r+8){
-        mission.active=false;
-        player.money += 250;
-        player.wanted = Math.min(5, player.wanted + 1);
-        toast("MISSION DONE +$250 (Wanted +1)");
+    // Missions: auto-complete when you reach marker
+    for(let i=missions.length-1;i>=0;i--){
+      const m=missions[i];
+      const d=Math.hypot(player.x-m.x, player.y-m.y);
+      m.t += dt;
+      if(d < m.r+8){
+        missions.splice(i,1);
+        player.money += 150;
+        player.wanted = Math.min(5, player.wanted + 0.5);
+        toast("DELIVERY COMPLETE +$150 (Wanted +0.5)");
+        newMission();
       }
     }
 
-    // toast
-    if(toastT>0) toastT -= dt;
+    // Particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vx *= (1-4*dt); p.vy *= (1-4*dt);
+      p.life -= dt;
+      if(p.life<=0) particles.splice(i,1);
+    }
 
+    if(toastT>0) toastT -= dt;
     updateCam();
   }
 
@@ -760,14 +843,13 @@
   // Render
   // =========================
   function render(t){
-    // background
     ctx.fillStyle = PAL.sky;
     ctx.fillRect(0,0,innerWidth,innerHeight);
 
     ctx.save();
     ctx.translate(-cam.x, -cam.y);
 
-    // visible tile range
+    // visible tiles
     const x0 = Math.max(0, ((cam.x)/TILE|0)-2);
     const y0 = Math.max(0, ((cam.y)/TILE|0)-2);
     const x1 = Math.min(MAP_W-1, ((cam.x+innerWidth)/TILE|0)+2);
@@ -780,32 +862,25 @@
         const px = tx*TILE;
         const tId = map[idx(tx,ty)];
 
-        if(tId===0){
-          ctx.fillStyle = ((tx+ty)&1) ? PAL.grass : PAL.grass2;
-        } else if(tId===1){
-          ctx.fillStyle = ((tx^ty)&3) ? PAL.road : PAL.road2;
-        } else if(tId===2){
-          ctx.fillStyle = ((tx+ty)&1) ? PAL.sidewalk : PAL.sidewalk2;
-        } else if(tId===3){
-          ctx.fillStyle = ((tx+ty)&1) ? PAL.water : PAL.water2;
-        } else {
-          // footprint under building will be covered by building draw; keep dark
-          ctx.fillStyle = "#11131c";
-        }
+        if(tId===0) ctx.fillStyle = ((tx+ty)&1) ? PAL.grassA : PAL.grassB;
+        else if(tId===1) ctx.fillStyle = ((tx^ty)&3) ? PAL.roadA : PAL.roadB;
+        else if(tId===2) ctx.fillStyle = ((tx+ty)&1) ? PAL.sideA : PAL.sideB;
+        else if(tId===3) ctx.fillStyle = ((tx+ty)&1) ? PAL.waterA : PAL.waterB;
+        else if(tId===5) ctx.fillStyle = "#2a2630";
+        else ctx.fillStyle = "#10131d";
+
         rectPix(px,py,TILE,TILE);
 
-        // lane dots on roads
+        // road markings
         if(tId===1 && ((tx+ty)&3)===0){
           ctx.fillStyle="rgba(255,255,255,0.06)";
           rectPix(px+7, py+7, 2, 2);
         }
-
         // sidewalk cracks
         if(tId===2 && ((tx*7+ty*11)&15)===0){
           ctx.fillStyle="rgba(0,0,0,0.10)";
           rectPix(px+3, py+10, 6, 1);
         }
-
         // water sparkle
         if(tId===3 && ((tx*13+ty*5)&15)===0){
           ctx.fillStyle="rgba(60,160,255,0.08)";
@@ -814,39 +889,43 @@
       }
     }
 
-    // mission marker
-    if(mission.active){
+    // street lamps (light pools)
+    for(const l of lamps){
+      if(l.x < cam.x-40 || l.x > cam.x+innerWidth+40) continue;
+      if(l.y < cam.y-40 || l.y > cam.y+innerHeight+40) continue;
+      drawLamp(l);
+    }
+
+    // missions
+    for(const m of missions){
+      const pulse = 0.6 + 0.4*Math.sin((t+m.t)*6);
       ctx.save();
-      ctx.translate(mission.x, mission.y);
-      const pulse = 0.6 + 0.4*Math.sin(t*6);
+      ctx.translate(m.x, m.y);
       ctx.strokeStyle="rgba(60,255,210,0.9)";
       ctx.lineWidth=3;
-      ctx.beginPath(); ctx.arc(0,0, mission.r + pulse*5, 0, Math.PI*2); ctx.stroke();
-      ctx.fillStyle="rgba(60,255,210,0.28)";
-      ctx.beginPath(); ctx.arc(0,0, mission.r, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0,0, m.r + pulse*5, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle="rgba(60,255,210,0.22)";
+      ctx.beginPath(); ctx.arc(0,0, m.r, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
 
-    // --- draw buildings (tall GTA1-ish) ---
-    // sort by y for nice layering
-    const viewB = [];
+    // buildings sorted by y
+    const viewB=[];
     for(const b of buildings){
-      if(b.x+b.w < cam.x-80 || b.x > cam.x+innerWidth+80) continue;
-      if(b.y+b.h < cam.y-80 || b.y > cam.y+innerHeight+80) continue;
+      if(b.x+b.w < cam.x-120 || b.x > cam.x+innerWidth+120) continue;
+      if(b.y+b.h < cam.y-120 || b.y > cam.y+innerHeight+120) continue;
       viewB.push(b);
     }
     viewB.sort((a,b)=> (a.y+a.h) - (b.y+b.h));
     for(const b of viewB) drawBuilding(b, t);
 
-    // skid marks (simple)
+    // cars (skid marks)
     for(const car of cars){
-      if(car.skid>0.25 && car.driver){
-        ctx.fillStyle = "rgba(0,0,0,0.10)";
+      if(car.skid>0.28 && (car.driver || !car.ai)){
+        ctx.fillStyle="rgba(0,0,0,0.10)";
         rectPix(car.x - Math.cos(car.a)*10 - 2, car.y - Math.sin(car.a)*10 - 2, 4, 4);
       }
     }
-
-    // cars
     for(const car of cars) drawCar(car);
 
     // cops
@@ -860,37 +939,43 @@
       ctx.restore();
     }
 
+    // particles sparks
+    for(const p of particles){
+      ctx.globalAlpha = clamp(p.life*3,0,1);
+      ctx.fillStyle = `rgba(${p.hue===170?60:255},${p.hue===170?255:77},${p.hue===170?210:109},0.9)`;
+      rectPix(p.x-1,p.y-1,2,2);
+      ctx.globalAlpha=1;
+    }
+
     // player
     drawPlayer(t);
 
-    ctx.restore(); // end world
+    ctx.restore(); // world
 
     // UI
     topEl.textContent =
       `LAZARO WORLD — HP ${player.hp|0} • $${player.money} • Wanted ${player.wanted.toFixed(1)} • ` +
-      `${player.inCar ? "IN CAR (E/ACTION to exit) • Space/BRAKE" : "ON FOOT (E/ACTION enter car)"}`;
+      `${player.inCar ? "DRIVING (E exit) • Space/BRAKE drift" : "ON FOOT (E enter car)"} • G remix city`;
 
     hudEl.innerHTML =
-      `<b>Desktop:</b> WASD move • E action • R respawn • Space brake • G regenerate city<br>`+
-      `<b>Phone:</b> joystick move • ACTION enter/exit/mission • BRAKE<br>`+
-      `<b>Mission:</b> go to glowing circle for cash. Chaos raises Wanted; cops chase you.`;
+      `<b>Desktop:</b> WASD • E action • R respawn • Space brake • G remix<br>`+
+      `<b>Phone:</b> joystick • ACTION • BRAKE<br>`+
+      `<b>Missions:</b> glowing circles = deliveries. Traffic runs automatically.`;
 
-    // toast
     if(toastT>0){
       ctx.save();
       ctx.globalAlpha = Math.min(1, toastT);
       ctx.fillStyle="rgba(0,0,0,0.55)";
-      const w = Math.min(560, innerWidth-40);
+      const w = Math.min(620, innerWidth-40);
       const x = (innerWidth-w)/2;
       ctx.fillRect(x, 60, w, 44);
-      ctx.fillStyle="rgba(255,255,255,0.95)";
+      ctx.fillStyle=PAL.text;
       ctx.font="900 15px system-ui";
       ctx.textAlign="center";
       ctx.fillText(toastMsg, innerWidth/2, 88);
       ctx.restore();
     }
 
-    // minimap
     drawMini();
   }
 
@@ -902,7 +987,6 @@
     const sx = mini.width / WORLD_W;
     const sy = mini.height / WORLD_H;
 
-    // sample map quickly
     const step = 7;
     for(let y=0;y<MAP_H;y+=step){
       for(let x=0;x<MAP_W;x+=step){
@@ -915,11 +999,11 @@
       }
     }
 
-    // mission
-    if(mission.active){
-      mctx.strokeStyle="rgba(60,255,210,0.7)";
+    // missions
+    mctx.strokeStyle="rgba(60,255,210,0.6)";
+    for(const m of missions){
       mctx.beginPath();
-      mctx.arc(mission.x*sx, mission.y*sy, 6, 0, Math.PI*2);
+      mctx.arc(m.x*sx, m.y*sy, 5, 0, Math.PI*2);
       mctx.stroke();
     }
 
@@ -937,7 +1021,6 @@
   // Start
   updateCam();
   requestAnimationFrame(tick);
-
 })();
 </script>
 </body>
