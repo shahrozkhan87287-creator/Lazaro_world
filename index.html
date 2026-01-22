@@ -3,19 +3,18 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>LAZARO WORLD — Pixel City (2D GTA-style)</title>
+<title>LAZARO WORLD — Pixel City (GTA1-ish)</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0b0f1e;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
   canvas{width:100vw;height:100vh;display:block;touch-action:none;image-rendering:pixelated}
-
   .ui{position:fixed;inset:0;pointer-events:none;color:#fff}
   .top{position:fixed;left:12px;right:12px;top:12px;padding:10px 12px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     font-weight:900;letter-spacing:.6px}
-  .hud{position:fixed;left:12px;bottom:12px;max-width:min(640px,78vw);padding:10px 12px;border-radius:16px;
+  .hud{position:fixed;left:12px;bottom:12px;max-width:min(680px,78vw);padding:10px 12px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     font-size:12px;line-height:1.35}
-  .mini{position:fixed;right:12px;bottom:12px;width:140px;height:140px;border-radius:16px;
+  .mini{position:fixed;right:12px;bottom:12px;width:150px;height:150px;border-radius:16px;
     background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
     overflow:hidden}
 
@@ -28,7 +27,7 @@
     border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.35);color:#fff;font-weight:950}
   .mBtn:active{transform:scale(.98)}
   #action{bottom:18px}
-  #handbrake{bottom:86px}
+  #brake{bottom:86px}
   #respawn{top:62px;padding:10px 14px;border-radius:14px}
 
   @media (pointer:fine){#joy,.mBtn{display:none}}
@@ -40,22 +39,23 @@
 <div class="ui">
   <div class="top" id="top">LAZARO WORLD — Pixel City</div>
   <div class="hud" id="hud"></div>
-  <canvas class="mini" id="mini" width="140" height="140"></canvas>
+  <canvas class="mini" id="mini" width="150" height="150"></canvas>
 
   <div id="joy"><div id="knob"></div></div>
   <div class="mBtn" id="respawn">RESPAWN</div>
-  <div class="mBtn" id="handbrake">BRAKE</div>
+  <div class="mBtn" id="brake">BRAKE</div>
   <div class="mBtn" id="action">ACTION</div>
 </div>
 
 <script>
 (() => {
-  // ---------- Canvas ----------
+  // =========================
+  // Canvas
+  // =========================
   const c = document.getElementById("c");
   const ctx = c.getContext("2d", { alpha:false });
   const mini = document.getElementById("mini");
   const mctx = mini.getContext("2d");
-
   const topEl = document.getElementById("top");
   const hudEl = document.getElementById("hud");
 
@@ -67,42 +67,79 @@
   }
   addEventListener("resize", resize); resize();
 
-  // ---------- World (tile map) ----------
-  // Mario-ish pixel vibe, GTA-ish open world: top-down tile city
+  // =========================
+  // World (tile + building lots)
+  // =========================
   const TILE = 16;
-  const MAP_W = 220;   // tiles
-  const MAP_H = 160;   // tiles
-  const WORLD_W = MAP_W*TILE;
-  const WORLD_H = MAP_H*TILE;
+  const MAP_W = 240, MAP_H = 170;
+  const WORLD_W = MAP_W*TILE, WORLD_H = MAP_H*TILE;
 
-  // Tile types:
-  // 0 = grass, 1 = road, 2 = sidewalk, 3 = water, 4 = building (solid)
+  // tiles: 0 grass, 1 road, 2 sidewalk, 3 water, 4 building footprint (solid)
   const map = new Uint8Array(MAP_W*MAP_H);
-
   const idx = (x,y)=> y*MAP_W + x;
   const inb = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
-  // Procedural city: roads grid + blocks + water strip
+  // building lots with height + style
+  const buildings = []; // {x,y,w,h,height,roof,wall,detail,solidRect}
+
+  // style palette (GTA1-ish)
+  const PAL = {
+    sky:"#0b0f1e",
+    grass:"#163021",
+    grass2:"#1a3a26",
+    road:"#2b2f3a",
+    road2:"#242836",
+    sidewalk:"#3a3f4b",
+    sidewalk2:"#343a45",
+    water:"#0b2a4a",
+    water2:"#083055",
+    shadow:"rgba(0,0,0,0.25)",
+    shadowDeep:"rgba(0,0,0,0.38)",
+    neonA:"rgba(60,255,210,0.9)",
+    neonB:"rgba(255,77,109,0.9)",
+  };
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function randi(a,b){ return (a + Math.random()*(b-a+1))|0; }
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  // Generate: roads grid, docks/water, sidewalks, tall building lots
   function gen(){
     map.fill(0);
+    buildings.length = 0;
 
-    // water band
+    // water band on east + docks
     for(let y=0;y<MAP_H;y++){
-      for(let x=0;x<MAP_W;x++){
-        if(x>MAP_W-28) map[idx(x,y)] = 3;
+      for(let x=MAP_W-34;x<MAP_W;x++){
+        map[idx(x,y)] = 3;
+      }
+    }
+    // docks wood planks near water
+    for(let y=10;y<MAP_H-10;y++){
+      for(let x=MAP_W-40;x<MAP_W-34;x++){
+        if((x+y)%2===0) map[idx(x,y)] = 2; // use sidewalk as dock base
       }
     }
 
-    // main roads
+    // roads grid (wider + GTA blocks)
     for(let y=0;y<MAP_H;y++){
-      for(let x=0;x<MAP_W-28;x++){
-        if(x%12===0 || y%12===0) map[idx(x,y)] = 1;
+      for(let x=0;x<MAP_W-34;x++){
+        const major = (x%14===0) || (y%14===0);
+        const minor = (x%28===0) || (y%28===0);
+        if(major){
+          map[idx(x,y)] = 1;
+          if(minor){
+            // widen intersections
+            if(inb(x+1,y)) map[idx(x+1,y)]=1;
+            if(inb(x,y+1)) map[idx(x,y+1)]=1;
+          }
+        }
       }
     }
 
     // sidewalks around roads
     for(let y=1;y<MAP_H-1;y++){
-      for(let x=1;x<MAP_W-29;x++){
+      for(let x=1;x<MAP_W-35;x++){
         if(map[idx(x,y)]===0){
           const nearRoad =
             map[idx(x+1,y)]===1 || map[idx(x-1,y)]===1 || map[idx(x,y+1)]===1 || map[idx(x,y-1)]===1;
@@ -111,67 +148,126 @@
       }
     }
 
-    // buildings in blocks (solid)
-    for(let y=2;y<MAP_H-2;y++){
-      for(let x=2;x<MAP_W-30;x++){
-        if(map[idx(x,y)]===0){
-          // fill some building lots
-          if(Math.random()<0.42){
-            // small building rectangle
-            const w = 2 + (Math.random()*5|0);
-            const h = 2 + (Math.random()*5|0);
-            // keep away from roads
-            let ok=true;
-            for(let yy=y; yy<y+h; yy++){
-              for(let xx=x; xx<x+w; xx++){
-                if(!inb(xx,yy) || map[idx(xx,yy)]!==0) ok=false;
-              }
-            }
-            if(ok){
-              for(let yy=y; yy<y+h; yy++){
-                for(let xx=x; xx<x+w; xx++){
-                  map[idx(xx,yy)] = 4;
-                }
-              }
-            }
-          }
-        }
+    // parks
+    for(let y=24;y<46;y++){
+      for(let x=22;x<58;x++){
+        map[idx(x,y)] = 0;
       }
     }
 
-    // small park area
-    for(let y=24;y<44;y++){
-      for(let x=24;x<54;x++){
-        map[idx(x,y)] = 0;
+    // building lots: fill empty block interiors with rectangles, leave alleys
+    const FOOTPRINT_TRIES = 5200;
+    for(let i=0;i<FOOTPRINT_TRIES;i++){
+      const x = randi(3, MAP_W-40);
+      const y = randi(3, MAP_H-4);
+      if(map[idx(x,y)]!==0) continue;
+
+      // keep away from roads/sidewalk a bit
+      let near = false;
+      for(let oy=-1; oy<=1; oy++){
+        for(let ox=-1; ox<=1; ox++){
+          if(!inb(x+ox,y+oy)) continue;
+          const t = map[idx(x+ox,y+oy)];
+          if(t===1 || t===2) near=true;
+        }
       }
+      if(near) continue;
+
+      const w = randi(3, 10);
+      const h = randi(3, 10);
+
+      // alley chance: skip if too solid cluster
+      if(Math.random() < 0.12) continue;
+
+      // ensure rectangle fits and is empty land
+      let ok = true;
+      for(let yy=y; yy<y+h; yy++){
+        for(let xx=x; xx<x+w; xx++){
+          if(!inb(xx,yy) || map[idx(xx,yy)]!==0) { ok=false; break; }
+        }
+        if(!ok) break;
+      }
+      if(!ok) continue;
+
+      // mark as building footprint (solid)
+      for(let yy=y; yy<y+h; yy++){
+        for(let xx=x; xx<x+w; xx++){
+          map[idx(xx,yy)] = 4;
+        }
+      }
+
+      // building style & height (GTA1-ish tall)
+      const height = randi(14, 52); // pixels of "fake height"
+      const roofHue = randi(0, 3);
+      const roof = roofHue===0 ? "#2a2d3a" : roofHue===1 ? "#2b2340" : roofHue===2 ? "#3a2b35" : "#243245";
+      const wall = roofHue===0 ? "#1f2230" : roofHue===1 ? "#241b38" : roofHue===2 ? "#2c1e2a" : "#1a2434";
+      const detail = Math.random()<0.55 ? "windows" : (Math.random()<0.5 ? "neon" : "blank");
+
+      buildings.push({
+        x:x*TILE, y:y*TILE, w:w*TILE, h:h*TILE,
+        height, roof, wall, detail
+      });
+    }
+
+    // make some “tower” buildings bigger
+    for(let i=0;i<18;i++){
+      const bx = randi(20, MAP_W-70);
+      const by = randi(10, MAP_H-30);
+      const w = randi(10, 18);
+      const h = randi(10, 18);
+      let ok=true;
+      for(let yy=by; yy<by+h; yy++){
+        for(let xx=bx; xx<bx+w; xx++){
+          if(!inb(xx,yy) || map[idx(xx,yy)]===3) ok=false;
+        }
+      }
+      if(!ok) continue;
+
+      // clear and place footprint
+      for(let yy=by; yy<by+h; yy++){
+        for(let xx=bx; xx<bx+w; xx++){
+          if(map[idx(xx,yy)]===0) map[idx(xx,yy)] = 4;
+          if(map[idx(xx,yy)]===4) map[idx(xx,yy)] = 4;
+          if(map[idx(xx,yy)]===2) map[idx(xx,yy)] = 2;
+          if(map[idx(xx,yy)]===1) map[idx(xx,yy)] = 1;
+        }
+      }
+      buildings.push({
+        x:bx*TILE, y:by*TILE, w:w*TILE, h:h*TILE,
+        height: randi(40, 86),
+        roof:"#2a2d3a", wall:"#151a26",
+        detail: "windows"
+      });
     }
   }
   gen();
 
   function tileAt(px,py){
-    const tx = (px/TILE)|0;
-    const ty = (py/TILE)|0;
+    const tx=(px/TILE)|0, ty=(py/TILE)|0;
     if(!inb(tx,ty)) return 4;
     return map[idx(tx,ty)];
   }
   function solidAt(px,py){
     const t = tileAt(px,py);
-    return (t===4 || t===3); // buildings & water solid
+    return (t===4 || t===3);
   }
 
-  // ---------- Input ----------
+  // =========================
+  // Input
+  // =========================
   const keys = new Set();
   addEventListener("keydown", e=>{
     const k = e.key.toLowerCase();
     keys.add(k);
     if(k==="e") action();
     if(k==="r") respawn();
-    if(k===" ") handbrake = true;
+    if(k===" ") handbrake=true;
+    if(k==="g") regen(); // optional regenerate city
   });
   addEventListener("keyup", e=>{
     const k = e.key.toLowerCase();
     keys.delete(k);
-    if(k===" ") handbrake = false;
+    if(k===" ") handbrake=false;
   });
 
   let pointer = {x:innerWidth/2,y:innerHeight/2};
@@ -180,7 +276,7 @@
   // Mobile joystick
   const joy = document.getElementById("joy");
   const knob = document.getElementById("knob");
-  let joyState = {id:null,active:false,dx:0,dy:0};
+  let joyState={id:null,active:false,dx:0,dy:0};
 
   function setKnob(dx,dy){
     const max=46;
@@ -195,59 +291,96 @@
     const r=joyRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2;
     const vx=e.clientX-cx, vy=e.clientY-cy;
     const max=r.width/2-10;
-    joyState.dx = Math.max(-1,Math.min(1,vx/max));
-    joyState.dy = Math.max(-1,Math.min(1,vy/max));
+    joyState.dx = clamp(vx/max, -1, 1);
+    joyState.dy = clamp(vy/max, -1, 1);
     setKnob(joyState.dx, joyState.dy);
   });
   function joyReset(){ joyState.active=false; joyState.id=null; joyState.dx=0; joyState.dy=0; setKnob(0,0); }
   joy.addEventListener("pointerup", e=>{ if(e.pointerId===joyState.id) joyReset(); });
   joy.addEventListener("pointercancel", joyReset);
 
-  // Mobile buttons
   document.getElementById("action").addEventListener("click", ()=>action());
   document.getElementById("respawn").addEventListener("click", ()=>respawn());
   let handbrake=false;
-  document.getElementById("handbrake").addEventListener("pointerdown", ()=>handbrake=true);
-  document.getElementById("handbrake").addEventListener("pointerup", ()=>handbrake=false);
+  document.getElementById("brake").addEventListener("pointerdown", ()=>handbrake=true);
+  document.getElementById("brake").addEventListener("pointerup", ()=>handbrake=false);
 
-  // ---------- Entities ----------
-  const player = {
-    x: 520, y: 520, r: 7,
-    hp: 100,
-    money: 0,
-    wanted: 0,
-    inCar: false
-  };
-
+  // =========================
+  // Entities
+  // =========================
+  const player = { x: 520, y: 520, r: 7, hp:100, money:0, wanted:0, inCar:false };
   const cars = [];
-  function spawnCar(x,y,color){
-    cars.push({x,y,w:22,h:14,a:0,spd:0,color,health:100,driver:false});
-  }
-  // spawn some cars on roads
-  for(let i=0;i<18;i++){
-    spawnCar( rand(100,WORLD_W-500), rand(100,WORLD_H-100), ["#ff4d6d","#3cffcc","#ffd166","#7b3cff"][i%4] );
+  const cops = [];
+
+  function spawnCar(x,y,style){
+    cars.push({
+      x,y,w:24,h:14,a:0,spd:0,style,
+      health:100,driver:false,
+      skid:0
+    });
   }
 
-  const cops = [];
+  // better car styles (pixel “sprites” drawn procedurally)
+  const CAR_STYLES = [
+    { name:"Coupe",  body:"#ff4d6d", roof:"rgba(255,255,255,0.55)", trim:"rgba(0,0,0,0.55)" },
+    { name:"Taxi",   body:"#ffd166", roof:"rgba(255,255,255,0.60)", trim:"rgba(0,0,0,0.55)" },
+    { name:"Neon",   body:"#3cffcc", roof:"rgba(255,255,255,0.55)", trim:"rgba(0,0,0,0.55)" },
+    { name:"Police", body:"#3b82f6", roof:"rgba(255,255,255,0.65)", trim:"rgba(0,0,0,0.55)" },
+  ];
+
+  // spawn cars mostly on roads
+  for(let i=0;i<26;i++){
+    const style = CAR_STYLES[i%CAR_STYLES.length];
+    spawnCar(rand(100,WORLD_W-700), rand(100,WORLD_H-100), style);
+  }
+
   function spawnCop(x,y){
-    cops.push({x,y,r:7,spd:110,hp:40,cd:0});
+    cops.push({x,y,r:7,spd:120,hp:40});
   }
 
   // Mission marker
   const mission = { x: 880, y: 300, r: 16, active:true };
 
-  function rand(a,b){ return a + Math.random()*(b-a); }
-
-  // ---------- Camera ----------
+  // =========================
+  // Camera
+  // =========================
   const cam = {x:0,y:0};
   function updateCam(){
-    cam.x = Math.max(0, Math.min(WORLD_W-innerWidth, player.x - innerWidth/2));
-    cam.y = Math.max(0, Math.min(WORLD_H-innerHeight, player.y - innerHeight/2));
+    cam.x = clamp(player.x - innerWidth/2, 0, WORLD_W-innerWidth);
+    cam.y = clamp(player.y - innerHeight/2, 0, WORLD_H-innerHeight);
   }
-
   function screenToWorld(sx,sy){ return {x:sx+cam.x, y:sy+cam.y}; }
 
-  // ---------- Game actions ----------
+  // =========================
+  // Toast
+  // =========================
+  let toastMsg="", toastT=0;
+  function toast(m){ toastMsg=m; toastT=1.3; }
+
+  // =========================
+  // Collision
+  // =========================
+  function collidesCircle(x,y,r){
+    const pts = [
+      [x+r,y],[x-r,y],[x,y+r],[x,y-r],
+      [x+r*0.7,y+r*0.7],[x-r*0.7,y+r*0.7],[x+r*0.7,y-r*0.7],[x-r*0.7,y-r*0.7]
+    ];
+    for(const [px,py] of pts){
+      if(solidAt(px,py)) return true;
+    }
+    return false;
+  }
+
+  function moveWithCollide(obj, dx, dy, radius){
+    let nx=obj.x+dx, ny=obj.y;
+    if(!collidesCircle(nx, ny, radius)) obj.x=nx;
+    nx=obj.x; ny=obj.y+dy;
+    if(!collidesCircle(nx, ny, radius)) obj.y=ny;
+  }
+
+  // =========================
+  // Action / gameplay
+  // =========================
   function nearestCar(){
     let best=null, bd=1e9;
     for(const car of cars){
@@ -258,7 +391,7 @@
   }
 
   function action(){
-    // Enter/Exit car or do mission
+    // mission interact
     const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
     if(mission.active && dM < mission.r+10){
       mission.active=false;
@@ -271,16 +404,14 @@
     const {car, dist} = nearestCar();
     if(!player.inCar){
       if(car && dist < 26){
-        player.inCar = true;
-        car.driver = true;
+        player.inCar=true;
+        car.driver=true;
         toast("ENTER CAR");
       } else {
-        // cause "chaos" (simple punch) -> wanted
         player.wanted = Math.min(5, player.wanted + 0.5);
         toast("CHAOS! (Wanted up)");
       }
     } else {
-      // exit current car
       for(const car of cars){
         if(car.driver){
           car.driver=false;
@@ -297,42 +428,202 @@
   function respawn(){
     player.x=520; player.y=520; player.hp=100;
     player.wanted = Math.max(0, player.wanted-1);
-    // exit car if in one
     for(const car of cars) car.driver=false;
     player.inCar=false;
     toast("RESPAWN");
   }
 
-  // ---------- Simple toast ----------
-  let toastMsg="", toastT=0;
-  function toast(m){ toastMsg=m; toastT=1.3; }
-
-  // ---------- Physics helpers ----------
-  function moveWithCollide(obj, dx, dy, radius){
-    // Try X then Y (simple AABB-ish collision against solid tiles)
-    let nx=obj.x+dx, ny=obj.y;
-
-    // X
-    if(!collidesCircle(nx, ny, radius)) obj.x=nx;
-
-    // Y
-    nx=obj.x; ny=obj.y+dy;
-    if(!collidesCircle(nx, ny, radius)) obj.y=ny;
+  function regen(){
+    gen();
+    toast("CITY REMIX (G)");
   }
 
-  function collidesCircle(x,y,r){
-    // sample around circle
-    const pts = [
-      [x+r,y],[x-r,y],[x,y+r],[x,y-r],
-      [x+r*0.7,y+r*0.7],[x-r*0.7,y+r*0.7],[x+r*0.7,y-r*0.7],[x-r*0.7,y-r*0.7]
-    ];
-    for(const [px,py] of pts){
-      if(solidAt(px,py)) return true;
+  // =========================
+  // Render helpers (pixel crisp)
+  // =========================
+  function rectPix(x,y,w,h){ ctx.fillRect(x|0,y|0,w|0,h|0); }
+  function strokePix(x,y,w,h){ ctx.strokeRect(x|0,y|0,w|0,h|0); }
+  function circlePix(x,y,r){ ctx.beginPath(); ctx.arc((x|0),(y|0),r,0,Math.PI*2); ctx.fill(); }
+
+  // “fake height” building: draw roof at base, then side faces offset (isometric-ish)
+  function drawBuilding(b, t){
+    // shadow direction (fixed) for GTA-ish depth
+    const shx = 0.6, shy = 0.9;
+    const shLen = b.height * 0.9;
+
+    // long cast shadow
+    ctx.fillStyle = PAL.shadowDeep;
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y + b.h);
+    ctx.lineTo(b.x + b.w, b.y + b.h);
+    ctx.lineTo(b.x + b.w + shx*shLen, b.y + b.h + shy*shLen);
+    ctx.lineTo(b.x + shx*shLen, b.y + b.h + shy*shLen);
+    ctx.closePath();
+    ctx.fill();
+
+    // “raised roof” effect: roof up-left a bit
+    const lift = Math.min(10, (b.height*0.22)|0);
+    const rx = b.x - lift;
+    const ry = b.y - lift;
+
+    // side face (right/bottom)
+    ctx.fillStyle = b.wall;
+    ctx.beginPath();
+    ctx.moveTo(b.x + b.w, b.y);
+    ctx.lineTo(rx + b.w, ry);
+    ctx.lineTo(rx + b.w, ry + b.h);
+    ctx.lineTo(b.x + b.w, b.y + b.h);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y + b.h);
+    ctx.lineTo(rx, ry + b.h);
+    ctx.lineTo(rx + b.w, ry + b.h);
+    ctx.lineTo(b.x + b.w, b.y + b.h);
+    ctx.closePath();
+    ctx.fillStyle = shade(b.wall, -10);
+    ctx.fill();
+
+    // roof
+    ctx.fillStyle = b.roof;
+    rectPix(rx, ry, b.w, b.h);
+
+    // roof border
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 1;
+    strokePix(rx, ry, b.w, b.h);
+
+    // details
+    if(b.detail==="windows"){
+      // window grid on roof (top-down, GTA1 vibe)
+      const gx = 6, gy = 6;
+      for(let y=ry+3; y<ry+b.h-3; y+=gy){
+        for(let x=rx+3; x<rx+b.w-3; x+=gx){
+          ctx.fillStyle = ((x+y)&8) ? "rgba(255,255,255,0.12)" : "rgba(60,255,210,0.08)";
+          rectPix(x, y, 2, 2);
+        }
+      }
+      // occasional rooftop unit
+      if(Math.random()<0.004){
+        ctx.fillStyle="rgba(0,0,0,0.25)";
+        rectPix(rx+b.w*0.6, ry+b.h*0.35, 10, 8);
+      }
+    } else if(b.detail==="neon"){
+      const pulse = 0.6 + 0.4*Math.sin(t*5 + (b.x+b.y)*0.01);
+      ctx.fillStyle = `rgba(255,77,109,${0.18+0.18*pulse})`;
+      rectPix(rx+2, ry+2, b.w-4, 2);
+      ctx.fillStyle = `rgba(60,255,210,${0.14+0.16*pulse})`;
+      rectPix(rx+2, ry+b.h-4, b.w-4, 2);
     }
-    return false;
   }
 
-  // ---------- Update loop ----------
+  function shade(hex, amt){
+    // hex -> slightly darker/lighter
+    // supports #rrggbb only
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    const nr = clamp(r+amt,0,255)|0;
+    const ng = clamp(g+amt,0,255)|0;
+    const nb = clamp(b+amt,0,255)|0;
+    return `rgb(${nr},${ng},${nb})`;
+  }
+
+  // Better car render: body + hood + windshield + lights + wheels + damage
+  function drawCar(car){
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.rotate(car.a);
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    rectPix(-12, 7, 24, 6);
+
+    // body base
+    ctx.fillStyle = car.style.body;
+    rectPix(-12, -7, 24, 14);
+
+    // hood highlight stripe
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    rectPix(-10, -6, 20, 3);
+
+    // windshield / roof
+    ctx.fillStyle = car.style.roof;
+    rectPix(-6, -3, 12, 6);
+
+    // wheels
+    ctx.fillStyle = car.style.trim;
+    rectPix(-11, -9, 6, 3);
+    rectPix(5, -9, 6, 3);
+    rectPix(-11, 6, 6, 3);
+    rectPix(5, 6, 6, 3);
+
+    // headlights (front = +x direction because we rotate toward a)
+    ctx.fillStyle = "rgba(255,255,200,0.65)";
+    rectPix(10, -5, 2, 3);
+    rectPix(10, 2, 2, 3);
+
+    // brake lights when braking / slowing
+    if(handbrake || car.skid>0.2){
+      ctx.fillStyle = "rgba(255,77,109,0.85)";
+      rectPix(-12, -5, 2, 3);
+      rectPix(-12, 2, 2, 3);
+    }
+
+    // driver marker
+    if(car.driver){
+      ctx.fillStyle = "rgba(60,255,210,0.95)";
+      rectPix(-1, -1, 2, 2);
+    }
+
+    // damage scratches
+    const dmg = 1 - car.health/100;
+    if(dmg>0.2){
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      rectPix(-8, -2, 6, 1);
+      rectPix(1, 3, 7, 1);
+    }
+
+    ctx.restore();
+  }
+
+  function drawPlayer(t){
+    ctx.save();
+    ctx.translate(player.x, player.y);
+
+    // shadow
+    ctx.fillStyle="rgba(0,0,0,0.22)";
+    circlePix(0, 8, 6);
+
+    // legs
+    ctx.fillStyle="rgba(0,0,0,0.35)";
+    rectPix(-4, 2, 3, 4);
+    rectPix(1, 2, 3, 4);
+
+    // body
+    ctx.fillStyle="#3cffcc";
+    rectPix(-5, -8, 10, 12);
+
+    // jacket detail
+    ctx.fillStyle="rgba(0,0,0,0.18)";
+    rectPix(-5, -2, 10, 1);
+
+    // head
+    ctx.fillStyle="#ffd6a5";
+    rectPix(-4, -14, 8, 6);
+
+    // visor blink
+    const blink = (Math.sin(t*6)*0.5+0.5);
+    ctx.fillStyle=`rgba(0,0,0,${0.35+0.2*blink})`;
+    rectPix(-3, -12, 6, 2);
+
+    ctx.restore();
+  }
+
+  // =========================
+  // Update loop
+  // =========================
   let last=performance.now();
   function tick(now){
     const dt = Math.min(0.033, (now-last)/1000);
@@ -345,96 +636,110 @@
   }
 
   function update(dt){
-    // Wanted decay
+    // wanted decay
     player.wanted = Math.max(0, player.wanted - dt*0.03);
 
-    // Spawn cops based on wanted
+    // spawn cops based on wanted
     const targetCops = Math.floor(player.wanted*2);
-    while(cops.length < targetCops){
-      spawnCop(player.x + rand(-280,280), player.y + rand(-280,280));
-    }
+    while(cops.length < targetCops) spawnCop(player.x + rand(-300,300), player.y + rand(-300,300));
     while(cops.length > targetCops) cops.pop();
 
-    // Control
+    // movement input
     let mx=0,my=0;
     if(keys.has("w")||keys.has("arrowup")) my-=1;
     if(keys.has("s")||keys.has("arrowdown")) my+=1;
     if(keys.has("a")||keys.has("arrowleft")) mx-=1;
     if(keys.has("d")||keys.has("arrowright")) mx+=1;
-
-    mx += joyState.dx;
-    my += joyState.dy;
+    mx += joyState.dx; my += joyState.dy;
 
     const m = Math.hypot(mx,my);
     if(m>1e-6){ mx/=m; my/=m; }
 
-    // If in car: drive
+    // drive or walk
     if(player.inCar){
       const car = cars.find(c=>c.driver);
       if(car){
-        // steering uses pointer direction (desktop) or movement vector (mobile)
         let steerX = mx, steerY = my;
+
+        // desktop: steer toward pointer
         if(matchMedia("(pointer:fine)").matches){
           const w = screenToWorld(pointer.x, pointer.y);
           steerX = w.x - car.x;
           steerY = w.y - car.y;
           const d = Math.hypot(steerX, steerY) || 1;
           steerX/=d; steerY/=d;
+        } else {
+          // if no joystick input, keep direction (coast)
+          if(Math.abs(steerX)+Math.abs(steerY) < 0.08){
+            steerX = Math.cos(car.a);
+            steerY = Math.sin(car.a);
+          }
         }
-        // accelerate
-        car.spd += 520*dt;
-        car.spd *= (handbrake ? (1-6*dt) : (1-2.2*dt));
-        car.spd = Math.min(car.spd, handbrake?120:260);
 
-        // turn toward steer vector
+        // acceleration + friction
+        const accel = handbrake ? 120 : 520;
+        car.spd += accel*dt;
+        const friction = handbrake ? (1-7.5*dt) : (1-2.4*dt);
+        car.spd *= friction;
+        car.spd = Math.min(car.spd, handbrake?140:300);
+
+        // steering
         const targetA = Math.atan2(steerY, steerX);
         let da = targetA - car.a;
         while(da>Math.PI) da-=Math.PI*2;
         while(da<-Math.PI) da+=Math.PI*2;
-        car.a += Math.max(-3.4*dt, Math.min(3.4*dt, da));
+        car.a += clamp(da, -3.6*dt, 3.6*dt);
 
-        // move car with collision
+        // skid amount (for visuals)
+        car.skid = clamp(car.skid + (handbrake?dt*2:-dt*2), 0, 1);
+
+        // move with collision
         const dx = Math.cos(car.a)*car.spd*dt;
         const dy = Math.sin(car.a)*car.spd*dt;
+
+        const beforeX=car.x, beforeY=car.y;
         moveWithCollide(car, dx, dy, 10);
 
-        // player rides
-        player.x = car.x;
-        player.y = car.y;
+        // crash damage when blocked
+        const moved = Math.hypot(car.x-beforeX, car.y-beforeY);
+        if(moved < Math.hypot(dx,dy)*0.3 && car.spd>120){
+          car.health = Math.max(0, car.health - 20*dt);
+          player.wanted = Math.min(5, player.wanted + 0.08);
+        }
 
-        // Chaos by driving on sidewalks/buildings increases wanted
+        // sidewalk/building chaos
         const t = tileAt(car.x, car.y);
-        if(t===2) player.wanted = Math.min(5, player.wanted + dt*0.05);
-        if(t===4) player.wanted = Math.min(5, player.wanted + dt*0.08);
+        if(t===2) player.wanted = Math.min(5, player.wanted + dt*0.04);
+        if(t===4) player.wanted = Math.min(5, player.wanted + dt*0.07);
+
+        // player rides
+        player.x = car.x; player.y = car.y;
+
+        if(car.health<=0){
+          car.health=0;
+          car.driver=false;
+          player.inCar=false;
+          toast("CAR WRECKED 💥");
+        }
       }
     } else {
-      // Walk
       const spd = 140;
       moveWithCollide(player, mx*spd*dt, my*spd*dt, player.r);
     }
 
-    // Cop AI chase
+    // cops chase
     for(const cop of cops){
       const dx = player.x - cop.x;
       const dy = player.y - cop.y;
       const d = Math.hypot(dx,dy) || 1;
-      const vx = (dx/d)*cop.spd;
-      const vy = (dy/d)*cop.spd;
-      moveWithCollide(cop, vx*dt, vy*dt, cop.r);
-
-      // "damage" if close
-      if(d < 18){
+      moveWithCollide(cop, (dx/d)*cop.spd*dt, (dy/d)*cop.spd*dt, cop.r);
+      if(d<18){
         player.hp = Math.max(0, player.hp - 18*dt);
-        if(player.hp<=0){
-          toast("WASTED 💀");
-          respawn();
-        }
+        if(player.hp<=0){ toast("WASTED 💀"); respawn(); }
       }
     }
 
-    updateCam();
-
-    // Mission completion check (also by walking into it)
+    // mission auto-complete
     if(mission.active){
       const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
       if(dM < mission.r+8){
@@ -445,49 +750,71 @@
       }
     }
 
-    // Toast timer
+    // toast
     if(toastT>0) toastT -= dt;
+
+    updateCam();
   }
 
-  // ---------- Render ----------
+  // =========================
+  // Render
+  // =========================
   function render(t){
-    ctx.fillStyle="#0b0f1e";
+    // background
+    ctx.fillStyle = PAL.sky;
     ctx.fillRect(0,0,innerWidth,innerHeight);
 
     ctx.save();
     ctx.translate(-cam.x, -cam.y);
 
-    // Tiles (simple pixel palette)
-    for(let ty=0; ty<MAP_H; ty++){
-      const y = ty*TILE;
-      // cull rows not visible
-      if(y > cam.y+innerHeight+TILE || y+TILE < cam.y-TILE) continue;
+    // visible tile range
+    const x0 = Math.max(0, ((cam.x)/TILE|0)-2);
+    const y0 = Math.max(0, ((cam.y)/TILE|0)-2);
+    const x1 = Math.min(MAP_W-1, ((cam.x+innerWidth)/TILE|0)+2);
+    const y1 = Math.min(MAP_H-1, ((cam.y+innerHeight)/TILE|0)+2);
 
-      for(let tx=0; tx<MAP_W; tx++){
-        const x = tx*TILE;
-        if(x > cam.x+innerWidth+TILE || x+TILE < cam.x-TILE) continue;
-
+    // tiles
+    for(let ty=y0; ty<=y1; ty++){
+      const py = ty*TILE;
+      for(let tx=x0; tx<=x1; tx++){
+        const px = tx*TILE;
         const tId = map[idx(tx,ty)];
-        if(tId===0){ ctx.fillStyle="#1a2b1f"; }        // grass
-        else if(tId===1){ ctx.fillStyle="#2b2f3a"; }   // road
-        else if(tId===2){ ctx.fillStyle="#3a3f4b"; }   // sidewalk
-        else if(tId===3){ ctx.fillStyle="#0b2a4a"; }   // water
-        else { ctx.fillStyle="#18141f"; }              // building
-        ctx.fillRect(x,y,TILE,TILE);
 
-        // tiny pixel detail
+        if(tId===0){
+          ctx.fillStyle = ((tx+ty)&1) ? PAL.grass : PAL.grass2;
+        } else if(tId===1){
+          ctx.fillStyle = ((tx^ty)&3) ? PAL.road : PAL.road2;
+        } else if(tId===2){
+          ctx.fillStyle = ((tx+ty)&1) ? PAL.sidewalk : PAL.sidewalk2;
+        } else if(tId===3){
+          ctx.fillStyle = ((tx+ty)&1) ? PAL.water : PAL.water2;
+        } else {
+          // footprint under building will be covered by building draw; keep dark
+          ctx.fillStyle = "#11131c";
+        }
+        rectPix(px,py,TILE,TILE);
+
+        // lane dots on roads
         if(tId===1 && ((tx+ty)&3)===0){
           ctx.fillStyle="rgba(255,255,255,0.06)";
-          ctx.fillRect(x+7,y+7,2,2);
+          rectPix(px+7, py+7, 2, 2);
         }
-        if(tId===0 && ((tx*13+ty*7)&15)===0){
-          ctx.fillStyle="rgba(0,0,0,0.12)";
-          ctx.fillRect(x+4,y+4,2,2);
+
+        // sidewalk cracks
+        if(tId===2 && ((tx*7+ty*11)&15)===0){
+          ctx.fillStyle="rgba(0,0,0,0.10)";
+          rectPix(px+3, py+10, 6, 1);
+        }
+
+        // water sparkle
+        if(tId===3 && ((tx*13+ty*5)&15)===0){
+          ctx.fillStyle="rgba(60,160,255,0.08)";
+          rectPix(px+4, py+6, 2, 2);
         }
       }
     }
 
-    // Mission marker
+    // mission marker
     if(mission.active){
       ctx.save();
       ctx.translate(mission.x, mission.y);
@@ -495,41 +822,34 @@
       ctx.strokeStyle="rgba(60,255,210,0.9)";
       ctx.lineWidth=3;
       ctx.beginPath(); ctx.arc(0,0, mission.r + pulse*5, 0, Math.PI*2); ctx.stroke();
-      ctx.fillStyle="rgba(60,255,210,0.35)";
+      ctx.fillStyle="rgba(60,255,210,0.28)";
       ctx.beginPath(); ctx.arc(0,0, mission.r, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
 
-    // Cars
+    // --- draw buildings (tall GTA1-ish) ---
+    // sort by y for nice layering
+    const viewB = [];
+    for(const b of buildings){
+      if(b.x+b.w < cam.x-80 || b.x > cam.x+innerWidth+80) continue;
+      if(b.y+b.h < cam.y-80 || b.y > cam.y+innerHeight+80) continue;
+      viewB.push(b);
+    }
+    viewB.sort((a,b)=> (a.y+a.h) - (b.y+b.h));
+    for(const b of viewB) drawBuilding(b, t);
+
+    // skid marks (simple)
     for(const car of cars){
-      ctx.save();
-      ctx.translate(car.x, car.y);
-      ctx.rotate(car.a);
-
-      // body
-      ctx.fillStyle=car.color;
-      rectPix(-11,-7,22,14);
-
-      // windshield stripe
-      ctx.fillStyle="rgba(255,255,255,0.55)";
-      rectPix(-6,-3,12,6);
-
-      // wheels
-      ctx.fillStyle="rgba(0,0,0,0.6)";
-      rectPix(-10,-9,6,3);
-      rectPix(4,-9,6,3);
-      rectPix(-10,6,6,3);
-      rectPix(4,6,6,3);
-
-      // driver indicator
-      if(car.driver){
-        ctx.fillStyle="rgba(60,255,210,0.9)";
-        rectPix(-2,-2,4,4);
+      if(car.skid>0.25 && car.driver){
+        ctx.fillStyle = "rgba(0,0,0,0.10)";
+        rectPix(car.x - Math.cos(car.a)*10 - 2, car.y - Math.sin(car.a)*10 - 2, 4, 4);
       }
-      ctx.restore();
     }
 
-    // Cops
+    // cars
+    for(const car of cars) drawCar(car);
+
+    // cops
     for(const cop of cops){
       ctx.save();
       ctx.translate(cop.x, cop.y);
@@ -540,41 +860,27 @@
       ctx.restore();
     }
 
-    // Player (pixel character)
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    // shadow
-    ctx.fillStyle="rgba(0,0,0,0.25)";
-    circlePix(0,8,6);
-    // body
-    ctx.fillStyle="#3cffcc";
-    rectPix(-5,-8,10,12);
-    // head
-    ctx.fillStyle="#ffd6a5";
-    rectPix(-4,-14,8,6);
-    // visor
-    ctx.fillStyle="rgba(0,0,0,0.5)";
-    rectPix(-3,-12,6,2);
-    ctx.restore();
+    // player
+    drawPlayer(t);
 
-    ctx.restore(); // world
+    ctx.restore(); // end world
 
-    // UI text
+    // UI
     topEl.textContent =
       `LAZARO WORLD — HP ${player.hp|0} • $${player.money} • Wanted ${player.wanted.toFixed(1)} • ` +
-      `${player.inCar ? "IN CAR (E/ACTION to exit)" : "ON FOOT (E/ACTION to enter car)"}`;
+      `${player.inCar ? "IN CAR (E/ACTION to exit) • Space/BRAKE" : "ON FOOT (E/ACTION enter car)"}`;
 
     hudEl.innerHTML =
-      `<b>Desktop:</b> WASD move • E action • R respawn • Space brake<br/>`+
-      `<b>Phone:</b> joystick move • ACTION enter/exit/mission • BRAKE<br/>`+
-      `<b>Mission:</b> go to glowing circle for cash. Causing chaos increases Wanted.`;
+      `<b>Desktop:</b> WASD move • E action • R respawn • Space brake • G regenerate city<br>`+
+      `<b>Phone:</b> joystick move • ACTION enter/exit/mission • BRAKE<br>`+
+      `<b>Mission:</b> go to glowing circle for cash. Chaos raises Wanted; cops chase you.`;
 
-    // Toast
+    // toast
     if(toastT>0){
       ctx.save();
       ctx.globalAlpha = Math.min(1, toastT);
       ctx.fillStyle="rgba(0,0,0,0.55)";
-      const w = Math.min(520, innerWidth-40);
+      const w = Math.min(560, innerWidth-40);
       const x = (innerWidth-w)/2;
       ctx.fillRect(x, 60, w, 44);
       ctx.fillStyle="rgba(255,255,255,0.95)";
@@ -584,32 +890,20 @@
       ctx.restore();
     }
 
-    // Minimap
+    // minimap
     drawMini();
   }
 
-  function rectPix(x,y,w,h){
-    // crisp pixel edges
-    ctx.fillRect((x)|0,(y)|0,(w)|0,(h)|0);
-  }
-  function circlePix(x,y,r){
-    ctx.beginPath();
-    ctx.arc(x|0,y|0,r,0,Math.PI*2);
-    ctx.fill();
-  }
-
   function drawMini(){
-    // show a small part of the world
     mctx.clearRect(0,0,mini.width,mini.height);
     mctx.fillStyle="rgba(0,0,0,0.25)";
     mctx.fillRect(0,0,mini.width,mini.height);
 
-    const scaleX = mini.width / WORLD_W;
-    const scaleY = mini.height / WORLD_H;
+    const sx = mini.width / WORLD_W;
+    const sy = mini.height / WORLD_H;
 
-    // draw roads/buildings simplified
-    // (fast sampling)
-    const step = 6;
+    // sample map quickly
+    const step = 7;
     for(let y=0;y<MAP_H;y+=step){
       for(let x=0;x<MAP_W;x+=step){
         const t = map[idx(x,y)];
@@ -617,32 +911,33 @@
         else if(t===4) mctx.fillStyle="rgba(0,0,0,0.18)";
         else if(t===3) mctx.fillStyle="rgba(60,160,255,0.12)";
         else continue;
-        mctx.fillRect(x*TILE*scaleX, y*TILE*scaleY, step*TILE*scaleX, step*TILE*scaleY);
+        mctx.fillRect(x*TILE*sx, y*TILE*sy, step*TILE*sx, step*TILE*sy);
       }
-    }
-
-    // player
-    mctx.fillStyle="rgba(60,255,210,0.9)";
-    mctx.fillRect(player.x*scaleX-2, player.y*scaleY-2, 4, 4);
-
-    // cops
-    mctx.fillStyle="rgba(59,130,246,0.9)";
-    for(const cop of cops){
-      mctx.fillRect(cop.x*scaleX-1, cop.y*scaleY-1, 2, 2);
     }
 
     // mission
     if(mission.active){
       mctx.strokeStyle="rgba(60,255,210,0.7)";
       mctx.beginPath();
-      mctx.arc(mission.x*scaleX, mission.y*scaleY, 6, 0, Math.PI*2);
+      mctx.arc(mission.x*sx, mission.y*sy, 6, 0, Math.PI*2);
       mctx.stroke();
     }
+
+    // cops
+    mctx.fillStyle="rgba(59,130,246,0.9)";
+    for(const cop of cops){
+      mctx.fillRect(cop.x*sx-1, cop.y*sy-1, 2, 2);
+    }
+
+    // player
+    mctx.fillStyle="rgba(60,255,210,0.9)";
+    mctx.fillRect(player.x*sx-2, player.y*sy-2, 4, 4);
   }
 
   // Start
   updateCam();
   requestAnimationFrame(tick);
+
 })();
 </script>
 </body>
