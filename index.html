@@ -3,51 +3,51 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>LAZARO WORLD — Pixel GTA (Fix Tiles)</title>
+<title>LAZARO WORLD — 2D GTA (Fixed)</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0b0f1e;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
   canvas{width:100vw;height:100vh;display:block;touch-action:none;image-rendering:pixelated}
   .ui{position:fixed;inset:0;pointer-events:none;color:#fff}
-  .top{position:fixed;left:12px;right:12px;top:12px;padding:10px 12px;border-radius:16px;
-    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
-    font-weight:900;letter-spacing:.6px}
-  .hud{position:fixed;left:12px;bottom:12px;max-width:min(760px,80vw);padding:10px 12px;border-radius:16px;
-    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
-    font-size:12px;line-height:1.35}
-  #joy{pointer-events:auto;position:fixed;left:14px;bottom:150px;width:150px;height:150px;border-radius:999px;
+  .bar{position:fixed;left:12px;right:12px;top:12px;padding:10px 12px;border-radius:16px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);font-weight:900}
+  .hud{position:fixed;left:12px;bottom:12px;max-width:min(900px,86vw);padding:10px 12px;border-radius:16px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);font-size:12px;line-height:1.35}
+  /* Mobile controls */
+  #joy{pointer-events:auto;position:fixed;left:14px;bottom:130px;width:150px;height:150px;border-radius:999px;
     background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
   #knob{position:absolute;left:50%;top:50%;width:64px;height:64px;transform:translate(-50%,-50%);
     border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18)}
-  .mBtn{pointer-events:auto;position:fixed;right:14px;border-radius:18px;padding:14px 16px;
+  .btn{pointer-events:auto;position:fixed;right:14px;border-radius:18px;padding:14px 16px;
     border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.35);color:#fff;font-weight:950}
-  .mBtn:active{transform:scale(.98)}
+  .btn:active{transform:scale(.98)}
   #action{bottom:18px}
   #brake{bottom:86px}
-  @media (pointer:fine){#joy,.mBtn{display:none}}
+  @media (pointer:fine){#joy,.btn{display:none}}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-
 <div class="ui">
-  <div class="top" id="top">LAZARO WORLD — Loading…</div>
+  <div class="bar" id="bar">LAZARO WORLD — loading…</div>
   <div class="hud" id="hud"></div>
   <div id="joy"><div id="knob"></div></div>
-  <div class="mBtn" id="brake">BRAKE</div>
-  <div class="mBtn" id="action">ACTION</div>
+  <div class="btn" id="brake">BRAKE</div>
+  <div class="btn" id="action">ACTION</div>
 </div>
 
 <script>
 (() => {
-  const c = document.getElementById("c");
-  const ctx = c.getContext("2d", { alpha:false });
-  const topEl = document.getElementById("top");
-  const hudEl = document.getElementById("hud");
-
+  // =========================
+  // Canvas
+  // =========================
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d",{alpha:false});
+  const bar = document.getElementById("bar");
+  const hud = document.getElementById("hud");
   function resize(){
     const dpr = Math.max(1, Math.min(2, devicePixelRatio||1));
-    c.width = (innerWidth*dpr)|0;
-    c.height = (innerHeight*dpr)|0;
+    canvas.width = (innerWidth*dpr)|0;
+    canvas.height = (innerHeight*dpr)|0;
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
   addEventListener("resize", resize); resize();
@@ -55,112 +55,113 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const rand=(a,b)=>a+Math.random()*(b-a);
 
-  // ======== ASSET LOADING ========
+  // =========================
+  // Assets
+  // =========================
   const ASSETS = {};
   function loadImage(key, src){
     return new Promise((res, rej)=>{
       const img = new Image();
-      img.onload = ()=>{ ASSETS[key]=img; res(img); };
-      img.onerror = ()=>rej(new Error("Failed to load: "+src));
-      img.src = src;
+      img.onload=()=>{ASSETS[key]=img; res(img);};
+      img.onerror=()=>rej(new Error("Failed to load: "+src));
+      img.src=src;
     });
   }
 
-  // ======== TILESET CONFIG (FIXED) ========
-  const TILE = 16;        // world tile size (keep 16)
-  let TILE_SRC = 32;      // source tile size in sTiles.png (most city packs are 32)
+  // =========================
+  // ✅ FIXED TILE SETTINGS
+  // =========================
+  // Your pack is 32px tiles. Using 16px created that “grid everywhere” look.
+  const TILE = 32;      // world tile size
+  const TILE_SRC = 32;  // source tile size in sTiles.png
 
-  // Load saved tile choices (so you don’t redo every refresh)
-  const saved = (()=>{ try{ return JSON.parse(localStorage.getItem("LW_TILE_INDEX")||"null"); }catch{return null;} })();
-  const TILE_INDEX = saved || { grass:0, road:1, side:2, water:3 };
+  // These are *default guesses*. If any one looks off, only change these numbers.
+  const SHEET = {
+    pavement: 10,  // flat ground tile (NOT a grid/edge)
+    road:     22,  // clean road tile
+    park:     12,  // grass/park tile
+    water:    50,  // water tile if exists (if wrong, it will still run)
+    roof:     11   // used under building tint
+  };
 
-  // Tile picker
-  let tilePickerOn = false;
-  let tilePickerMode = "road"; // grass/road/side/water
-
-  function tileCols(){
+  function sheetCols(){
     const img = ASSETS.tiles;
     return img ? Math.max(1, (img.width / TILE_SRC) | 0) : 1;
   }
-  function tileIndexFromOverlayXY(px, py){
-    const cols = tileCols();
-    const tx = (px / TILE_SRC) | 0;
-    const ty = (py / TILE_SRC) | 0;
-    return ty * cols + tx;
-  }
 
-  function drawTile(tileIndex, dx, dy){
+  function drawSheetTile(tileIndex, dx, dy){
     const img = ASSETS.tiles;
     if(!img){ ctx.fillStyle="#222"; ctx.fillRect(dx,dy,TILE,TILE); return; }
-
-    const cols = tileCols();
+    const cols = sheetCols();
     const sx = (tileIndex % cols) * TILE_SRC;
     const sy = ((tileIndex / cols) | 0) * TILE_SRC;
-
-    if(sx+TILE_SRC > img.width || sy+TILE_SRC > img.height){
+    if(sx+TILE_SRC>img.width || sy+TILE_SRC>img.height){
       ctx.fillStyle="#444"; ctx.fillRect(dx,dy,TILE,TILE); return;
     }
     ctx.drawImage(img, sx, sy, TILE_SRC, TILE_SRC, dx, dy, TILE, TILE);
   }
 
-  function saveTiles(){
-    localStorage.setItem("LW_TILE_INDEX", JSON.stringify(TILE_INDEX));
-  }
-
-  // ======== WORLD ========
-  const MAP_W = 140, MAP_H = 100;
+  // =========================
+  // Map (clean GTA-1 vibe)
+  // =========================
+  const MAP_W = 70, MAP_H = 50; // fewer tiles because 32px each
   const WORLD_W = MAP_W*TILE, WORLD_H = MAP_H*TILE;
+
+  // 0 pavement, 1 road, 2 park, 3 water, 4 building(solid)
   const map = new Uint8Array(MAP_W*MAP_H);
   const idx=(x,y)=>y*MAP_W+x;
   const inb=(x,y)=>x>=0&&y>=0&&x<MAP_W&&y<MAP_H;
 
-  // 0 grass, 1 road, 2 sidewalk, 3 water, 4 solid(building)
-  function gen(){
+  function genCity(){
     map.fill(0);
 
-    // water right side
+    // water strip right side
     for(let y=0;y<MAP_H;y++){
-      for(let x=MAP_W-18;x<MAP_W;x++){
-        map[idx(x,y)] = 3;
-      }
+      for(let x=MAP_W-8;x<MAP_W;x++) map[idx(x,y)] = 3;
     }
-    // roads grid
+
+    // roads (every 8 tiles) — simple + clean
     for(let y=0;y<MAP_H;y++){
-      for(let x=0;x<MAP_W-18;x++){
-        if(x%10===0 || y%10===0) map[idx(x,y)] = 1;
+      for(let x=0;x<MAP_W-8;x++){
+        if(x%8===0 || y%8===0) map[idx(x,y)] = 1;
       }
     }
-    // sidewalks
-    for(let y=1;y<MAP_H-1;y++){
-      for(let x=1;x<MAP_W-19;x++){
-        if(map[idx(x,y)]===0){
-          const near =
-            map[idx(x+1,y)]===1||map[idx(x-1,y)]===1||map[idx(x,y+1)]===1||map[idx(x,y-1)]===1;
-          if(near) map[idx(x,y)] = 2;
-        }
-      }
+
+    // parks sprinkled
+    for(let i=0;i<170;i++){
+      const x=(Math.random()*(MAP_W-12)|0)+2;
+      const y=(Math.random()*(MAP_H-4)|0)+2;
+      if(map[idx(x,y)]===0) map[idx(x,y)] = 2;
     }
-    // buildings
-    for(let i=0;i<900;i++){
-      const bx=(Math.random()*(MAP_W-22)|0)+2;
-      const by=(Math.random()*(MAP_H-4)|0)+2;
-      if(map[idx(bx,by)]!==0) continue;
-      const w=(2+Math.random()*7|0), h=(2+Math.random()*7|0);
+
+    // buildings (avoid roads/water/parks)
+    for(let i=0;i<260;i++){
+      const bx=(Math.random()*(MAP_W-14)|0)+2;
+      const by=(Math.random()*(MAP_H-6)|0)+2;
+      const w=(2+Math.random()*4|0);
+      const h=(2+Math.random()*4|0);
+
       let ok=true;
       for(let y=by;y<by+h;y++){
         for(let x=bx;x<bx+w;x++){
-          if(!inb(x,y) || map[idx(x,y)]!==0) ok=false;
+          if(!inb(x,y)) ok=false;
+          const t = map[idx(x,y)];
+          if(t!==0) ok=false;
+          // keep away from roads
+          if(inb(x+1,y) && map[idx(x+1,y)]===1) ok=false;
+          if(inb(x-1,y) && map[idx(x-1,y)]===1) ok=false;
+          if(inb(x,y+1) && map[idx(x,y+1)]===1) ok=false;
+          if(inb(x,y-1) && map[idx(x,y-1)]===1) ok=false;
         }
       }
       if(!ok) continue;
+
       for(let y=by;y<by+h;y++){
-        for(let x=bx;x<bx+w;x++){
-          map[idx(x,y)] = 4;
-        }
+        for(let x=bx;x<bx+w;x++) map[idx(x,y)] = 4;
       }
     }
   }
-  gen();
+  genCity();
 
   function tileAt(px,py){
     const tx=(px/TILE)|0, ty=(py/TILE)|0;
@@ -172,43 +173,16 @@
     return (t===4 || t===3);
   }
 
-  // ======== INPUT ========
+  // =========================
+  // Input (keyboard + mobile joystick)
+  // =========================
   const keys=new Set();
   addEventListener("keydown", e=>{
-    const k=e.key.toLowerCase();
-    keys.add(k);
-
+    const k=e.key.toLowerCase(); keys.add(k);
     if(k==="e") action();
-    if(k==="g"){ gen(); toast("CITY REMIX"); }
-
-    // Tile picker controls
-    if(k==="t"){
-      tilePickerOn = !tilePickerOn;
-      toast(tilePickerOn ? "TILE PICKER ON: 1 grass 2 road 3 side 4 water (click a tile)" : "TILE PICKER OFF");
-    }
-    if(tilePickerOn){
-      if(k==="1"){ tilePickerMode="grass"; toast("Pick: GRASS"); }
-      if(k==="2"){ tilePickerMode="road";  toast("Pick: ROAD"); }
-      if(k==="3"){ tilePickerMode="side";  toast("Pick: SIDE"); }
-      if(k==="4"){ tilePickerMode="water"; toast("Pick: WATER"); }
-      if(k==="[" ){ TILE_SRC = Math.max(8, TILE_SRC-8); toast("TILE_SRC="+TILE_SRC); }
-      if(k==="]" ){ TILE_SRC = Math.min(64, TILE_SRC+8); toast("TILE_SRC="+TILE_SRC); }
-    }
+    if(k==="g") { genCity(); toast("CITY REMIX"); }
   });
   addEventListener("keyup", e=>keys.delete(e.key.toLowerCase()));
-
-  // Click to pick a tile
-  addEventListener("pointerdown", (e)=>{
-    if(!tilePickerOn || !ASSETS.tiles) return;
-    const ox=20, oy=90;
-    const x=e.clientX-ox, y=e.clientY-oy;
-    const img=ASSETS.tiles;
-    if(x<0||y<0||x>=img.width||y>=img.height) return;
-    const i = tileIndexFromOverlayXY(x,y);
-    TILE_INDEX[tilePickerMode] = i;
-    saveTiles();
-    toast(`${tilePickerMode.toUpperCase()} = #${i} (saved)`);
-  });
 
   // joystick
   const joy=document.getElementById("joy");
@@ -219,7 +193,9 @@
     knob.style.transform=`translate(calc(-50% + ${dx*max}px), calc(-50% + ${dy*max}px))`;
   }
   function joyRect(){ return joy.getBoundingClientRect(); }
-  joy.addEventListener("pointerdown", e=>{ joyState.id=e.pointerId; joyState.active=true; joy.setPointerCapture(e.pointerId); });
+  joy.addEventListener("pointerdown", e=>{
+    joyState.id=e.pointerId; joyState.active=true; joy.setPointerCapture(e.pointerId);
+  });
   joy.addEventListener("pointermove", e=>{
     if(!joyState.active||e.pointerId!==joyState.id) return;
     const r=joyRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
@@ -232,18 +208,21 @@
   joy.addEventListener("pointerup", e=>{ if(e.pointerId===joyState.id) joyReset(); });
   joy.addEventListener("pointercancel", joyReset);
 
+  // buttons
   document.getElementById("action").addEventListener("click", ()=>action());
   let handbrake=false;
-  document.getElementById("brake").addEventListener("pointerdown", ()=>handbrake=true);
-  document.getElementById("brake").addEventListener("pointerup", ()=>handbrake=false);
+  const brakeBtn=document.getElementById("brake");
+  brakeBtn.addEventListener("pointerdown", ()=>handbrake=true);
+  brakeBtn.addEventListener("pointerup", ()=>handbrake=false);
+  brakeBtn.addEventListener("pointercancel", ()=>handbrake=false);
 
-  // ======== ENTITIES ========
-  const player={x:260,y:260,r:7,hp:100,inCar:false};
+  // =========================
+  // Entities
+  // =========================
+  const player={x:220,y:220,r:10,inCar:false};
   const cars=[];
-  function spawnCar(x,y){
-    cars.push({x,y,a:0,spd:0,driver:false});
-  }
-  for(let i=0;i<10;i++) spawnCar(rand(120,WORLD_W-260), rand(120,WORLD_H-120));
+  function spawnCar(x,y){ cars.push({x,y,a:0,spd:0,driver:false}); }
+  for(let i=0;i<10;i++) spawnCar(rand(120,WORLD_W-340), rand(120,WORLD_H-120));
 
   function nearestCar(){
     let best=null, bd=1e9;
@@ -257,29 +236,15 @@
   function action(){
     const {car,dist}=nearestCar();
     if(!player.inCar){
-      if(car && dist<26){ player.inCar=true; car.driver=true; toast("ENTER CAR"); }
-      else { toast("ACTION! (no car close)"); }
+      if(car && dist<40){ player.inCar=true; car.driver=true; toast("ENTER CAR"); }
+      else toast("NO CAR CLOSE");
     }else{
-      for(const car of cars){
-        if(car.driver){
-          car.driver=false;
-          player.inCar=false;
-          player.x=car.x+28; player.y=car.y;
-          toast("EXIT CAR");
-          break;
-        }
-      }
+      const c = cars.find(x=>x.driver);
+      if(c){ c.driver=false; player.inCar=false; player.x=c.x+56; player.y=c.y; toast("EXIT CAR"); }
     }
   }
 
-  // ======== CAMERA ========
-  const cam={x:0,y:0};
-  function updateCam(){
-    cam.x=clamp(player.x-innerWidth/2,0,WORLD_W-innerWidth);
-    cam.y=clamp(player.y-innerHeight/2,0,WORLD_H-innerHeight);
-  }
-
-  // ======== COLLISION ========
+  // collision helpers
   function collidesCircle(x,y,r){
     const pts=[[x+r,y],[x-r,y],[x,y+r],[x,y-r]];
     for(const [px,py] of pts){
@@ -294,34 +259,40 @@
     if(!collidesCircle(nx,ny,r)) obj.y=ny;
   }
 
-  // ======== TOAST ========
-  let toastMsg="",toastT=0;
-  function toast(m){ toastMsg=m; toastT=1.3; }
+  // camera
+  const cam={x:0,y:0};
+  function updateCam(){
+    cam.x=clamp(player.x-innerWidth/2,0,Math.max(0,WORLD_W-innerWidth));
+    cam.y=clamp(player.y-innerHeight/2,0,Math.max(0,WORLD_H-innerHeight));
+  }
 
-  // ======== DRAW: CAR PNG ========
-  function drawCarSprite(car){
-    const img = ASSETS.carRed;
-    const w = 26, h = 14;
+  // toast
+  let toastMsg="", toastT=0;
+  function toast(m){ toastMsg=m; toastT=1.2; }
+
+  // draw car png
+  function drawCar(car){
+    const img=ASSETS.carRed;
+    const w=40,h=22;
     ctx.save();
-    ctx.translate(car.x, car.y);
-    ctx.rotate(car.a + Math.PI/2);
-
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(-w/2 + 1, -h/2 + 3, w, h);
-    ctx.globalAlpha = 1;
-
-    if(img) ctx.drawImage(img, -w/2, -h/2, w, h);
+    ctx.translate(car.x,car.y);
+    ctx.rotate(car.a + Math.PI/2); // rotate sprite alignment
+    ctx.globalAlpha=0.22;
+    ctx.fillStyle="#000";
+    ctx.fillRect(-w/2+2,-h/2+5,w,h);
+    ctx.globalAlpha=1;
+    if(img) ctx.drawImage(img,-w/2,-h/2,w,h);
     else { ctx.fillStyle="rgba(255,255,255,0.7)"; ctx.fillRect(-w/2,-h/2,w,h); }
-
     if(car.driver){
-      ctx.fillStyle="rgba(60,255,210,0.9)";
-      ctx.fillRect(-1, -1, 2, 2);
+      ctx.fillStyle="rgba(60,255,210,0.95)";
+      ctx.fillRect(-2,-2,4,4);
     }
     ctx.restore();
   }
 
-  // ======== LOOP ========
+  // =========================
+  // Loop
+  // =========================
   let last=performance.now();
   function tick(now){
     const dt=Math.min(0.033,(now-last)/1000);
@@ -345,26 +316,24 @@
     if(player.inCar){
       const car=cars.find(c=>c.driver);
       if(car){
-        car.spd += (handbrake?120:520)*dt;
-        car.spd *= handbrake ? (1-7*dt) : (1-2.4*dt);
-        car.spd = Math.min(car.spd, handbrake?140:280);
+        // accelerate + steering
+        car.spd += (handbrake?120:680)*dt;
+        car.spd *= handbrake ? (1-8*dt) : (1-2.5*dt);
+        car.spd = Math.min(car.spd, handbrake?180:360);
 
-        if(Math.abs(mx)+Math.abs(my)>0.05){
-          const targetA=Math.atan2(my,mx);
-          let da=targetA-car.a;
+        if(Math.abs(mx)+Math.abs(my)>0.06){
+          const target=Math.atan2(my,mx);
+          let da=target-car.a;
           while(da>Math.PI) da-=Math.PI*2;
           while(da<-Math.PI) da+=Math.PI*2;
-          car.a += clamp(da,-3.4*dt,3.4*dt);
+          car.a += clamp(da,-3.8*dt,3.8*dt);
         }
 
-        const dx=Math.cos(car.a)*car.spd*dt;
-        const dy=Math.sin(car.a)*car.spd*dt;
-        moveWithCollide(car,dx,dy,10);
-
+        moveWithCollide(car, Math.cos(car.a)*car.spd*dt, Math.sin(car.a)*car.spd*dt, 14);
         player.x=car.x; player.y=car.y;
       }
     }else{
-      moveWithCollide(player, mx*150*dt, my*150*dt, player.r);
+      moveWithCollide(player, mx*220*dt, my*220*dt, player.r);
     }
 
     updateCam();
@@ -378,6 +347,7 @@
     ctx.save();
     ctx.translate(-cam.x,-cam.y);
 
+    // draw visible tiles
     const x0=Math.max(0,((cam.x)/TILE|0)-2);
     const y0=Math.max(0,((cam.y)/TILE|0)-2);
     const x1=Math.min(MAP_W-1,((cam.x+innerWidth)/TILE|0)+2);
@@ -385,61 +355,47 @@
 
     for(let ty=y0;ty<=y1;ty++){
       for(let tx=x0;tx<=x1;tx++){
-        const tId=map[idx(tx,ty)];
-        let tileIndex = TILE_INDEX.grass;
-        if(tId===1) tileIndex = TILE_INDEX.road;
-        if(tId===2) tileIndex = TILE_INDEX.side;
-        if(tId===3) tileIndex = TILE_INDEX.water;
-        drawTile(tileIndex, tx*TILE, ty*TILE);
+        const t = map[idx(tx,ty)];
+        let sheet = SHEET.pavement;
+        if(t===1) sheet = SHEET.road;
+        if(t===2) sheet = SHEET.park;
+        if(t===3) sheet = SHEET.water;
+        if(t===4) sheet = SHEET.roof;
+        drawSheetTile(sheet, tx*TILE, ty*TILE);
+
+        // buildings: add simple height shading so they look tall
+        if(t===4){
+          ctx.fillStyle="rgba(0,0,0,0.25)";
+          ctx.fillRect(tx*TILE, ty*TILE, TILE, TILE);
+          ctx.fillStyle="rgba(255,255,255,0.06)";
+          ctx.fillRect(tx*TILE, ty*TILE, TILE, 5);
+          ctx.fillRect(tx*TILE, ty*TILE, 5, TILE);
+        }
       }
     }
 
-    for(const car of cars) drawCarSprite(car);
+    // cars
+    for(const car of cars) drawCar(car);
 
-    // simple player block (next upgrade = walking sprite)
+    // player (placeholder)
     ctx.save();
-    ctx.translate(player.x, player.y);
+    ctx.translate(player.x,player.y);
     ctx.fillStyle="rgba(0,0,0,0.25)";
-    ctx.beginPath(); ctx.arc(0,8,6,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle="#3cffcc"; ctx.fillRect(-5,-8,10,12);
-    ctx.fillStyle="#ffd6a5"; ctx.fillRect(-4,-14,8,6);
+    ctx.beginPath(); ctx.arc(0,12,10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#3cffcc"; ctx.fillRect(-7,-10,14,18);
+    ctx.fillStyle="#ffd6a5"; ctx.fillRect(-6,-20,12,8);
     ctx.restore();
 
     ctx.restore();
 
-    // Tile picker overlay
-    if(tilePickerOn && ASSETS.tiles){
-      const img = ASSETS.tiles;
-      const ox=20, oy=90;
+    // UI
+    bar.textContent="LAZARO WORLD — Fixed City ✅  (Press G to remix)";
+    hud.innerHTML =
+      `<b>Move:</b> WASD / arrows (or joystick on phone)<br>`+
+      `<b>Action:</b> E or ACTION = enter/exit car<br>`+
+      `<b>Remix:</b> G = new city layout<br>`+
+      `<b>If ground/road look wrong:</b> change 4 numbers in SHEET (pavement/road/park/water).`;
 
-      ctx.save();
-      ctx.fillStyle="rgba(0,0,0,0.65)";
-      ctx.fillRect(ox-12, oy-28, img.width+24, img.height+40);
-      ctx.fillStyle="rgba(255,255,255,0.95)";
-      ctx.font="900 14px system-ui";
-      ctx.fillText("TILE PICKER (press 1/2/3/4 then CLICK a tile) — [ ] change TILE_SRC", ox, oy-10);
-      ctx.font="700 12px system-ui";
-      ctx.fillText(`TILE_SRC=${TILE_SRC}  grass=${TILE_INDEX.grass} road=${TILE_INDEX.road} side=${TILE_INDEX.side} water=${TILE_INDEX.water}`, ox, oy+10);
-
-      ctx.drawImage(img, ox, oy+20);
-
-      ctx.strokeStyle="rgba(255,255,255,0.18)";
-      ctx.lineWidth=1;
-      for(let x=0;x<=img.width;x+=TILE_SRC){
-        ctx.beginPath(); ctx.moveTo(ox+x, oy+20); ctx.lineTo(ox+x, oy+20+img.height); ctx.stroke();
-      }
-      for(let y=0;y<=img.height;y+=TILE_SRC){
-        ctx.beginPath(); ctx.moveTo(ox, oy+20+y); ctx.lineTo(ox+img.width, oy+20+y); ctx.stroke();
-      }
-      ctx.restore();
-    }
-
-    topEl.textContent = "LAZARO WORLD — Fixed Tiles ✅ (Press T to pick correct tiles)";
-    hudEl.innerHTML =
-      `<b>Press T</b> to open tileset, then <b>1/2/3/4</b> and click a tile. Saved automatically.<br>`+
-      `<b>Keyboard:</b> WASD move, E enter/exit car, G remix city<br>`+
-      `<b>Phone:</b> joystick + ACTION + BRAKE`;
-    
     if(toastT>0){
       ctx.save();
       ctx.globalAlpha=Math.min(1,toastT);
@@ -455,15 +411,17 @@
     }
   }
 
-  // ======== START ========
+  // =========================
+  // Start
+  // =========================
   async function start(){
     try{
       await loadImage("tiles","assets/sTiles.png");
       await loadImage("carRed","assets/Vehicles/sRedCar.png");
-      topEl.textContent="LAZARO WORLD — Loaded ✅";
+      bar.textContent="LAZARO WORLD — Loaded ✅";
     }catch(err){
-      topEl.textContent="LAZARO WORLD — Asset load failed ❌";
-      hudEl.textContent=String(err);
+      bar.textContent="LAZARO WORLD — asset load failed ❌";
+      hud.textContent=String(err);
     }
     requestAnimationFrame(tick);
   }
