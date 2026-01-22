@@ -3,1052 +3,646 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>LAZARO WORLD — Neon Battleground (2D)</title>
+<title>LAZARO WORLD — Pixel City (2D GTA-style)</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#05060c;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  canvas{width:100vw;height:100vh;display:block;touch-action:none}
-  .ui{position:fixed;inset:0;color:#fff;pointer-events:none}
-  .top{
-    position:fixed;left:12px;right:12px;top:12px;
-    background:linear-gradient(135deg, rgba(0,255,204,.10), rgba(120,60,255,.10));
-    border:1px solid rgba(255,255,255,.14); border-radius:18px;
-    padding:10px 12px; backdrop-filter:blur(10px);
-    box-shadow:0 18px 70px rgba(0,0,0,.55);
-    font-weight:950; letter-spacing:.6px; text-align:center;
-  }
-  .hud{
-    position:fixed;left:12px;bottom:12px;
-    background:rgba(0,0,0,.35);
-    border:1px solid rgba(255,255,255,.12); border-radius:18px;
-    padding:10px 12px; backdrop-filter:blur(10px);
-    box-shadow:0 14px 50px rgba(0,0,0,.35);
-    font-size:12px; max-width:min(76vw,560px);
-  }
-  .panel{
-    pointer-events:auto;
-    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:min(620px,92vw);
-    background:rgba(0,0,0,.58);
-    border:1px solid rgba(255,255,255,.14);
-    border-radius:22px;
-    padding:18px;
-    backdrop-filter:blur(12px);
-    box-shadow:0 26px 90px rgba(0,0,0,.65);
-  }
-  .title{font-size:34px;font-weight:1000;letter-spacing:2px;margin:0 0 6px}
-  .sub{opacity:.85;margin:0 0 16px;line-height:1.35}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  .btn{
-    pointer-events:auto;
-    border:1px solid rgba(255,255,255,.16);
-    background:rgba(255,255,255,.06);
-    color:#fff;border-radius:16px;
-    padding:12px 14px;font-weight:950;
-    user-select:none;-webkit-tap-highlight-color:transparent;
-    cursor:pointer;
-  }
-  .btn:hover{background:rgba(255,255,255,.10)}
-  .btn:active{transform:scale(.98)}
-  .btn.primary{background:linear-gradient(135deg,#1af1c4,#7b3cff);color:#05060c;border:0}
-  .btn.warn{background:linear-gradient(135deg,#ff3a6b,#ffb23a);color:#1b0a10;border:0}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media (max-width:560px){.grid{grid-template-columns:1fr}}
-  input[type=range]{width:100%}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0f1e;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  canvas{width:100vw;height:100vh;display:block;touch-action:none;image-rendering:pixelated}
+
+  .ui{position:fixed;inset:0;pointer-events:none;color:#fff}
+  .top{position:fixed;left:12px;right:12px;top:12px;padding:10px 12px;border-radius:16px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
+    font-weight:900;letter-spacing:.6px}
+  .hud{position:fixed;left:12px;bottom:12px;max-width:min(640px,78vw);padding:10px 12px;border-radius:16px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
+    font-size:12px;line-height:1.35}
+  .mini{position:fixed;right:12px;bottom:12px;width:140px;height:140px;border-radius:16px;
+    background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);
+    overflow:hidden}
 
   /* Mobile controls */
-  .mBtn{
-    pointer-events:auto;
-    position:fixed;
-    border:1px solid rgba(255,255,255,.14);
-    background:rgba(0,0,0,.35);
-    color:#fff;border-radius:18px;
-    padding:14px 16px;font-weight:1000;
-    user-select:none;-webkit-tap-highlight-color:transparent;
-  }
-  .mBtn:active{transform:scale(.98);background:rgba(255,255,255,.10)}
-  #shoot{right:18px;bottom:118px}
-  #act{right:18px;bottom:18px}
-  #swap{right:18px;top:62px;padding:10px 14px;border-radius:14px}
-  #music{right:18px;top:12px;padding:10px 14px;border-radius:14px}
-  #joy{
-    pointer-events:auto;position:fixed;left:18px;bottom:18px;width:152px;height:152px;border-radius:999px;
-    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);touch-action:none
-  }
-  #knob{position:absolute;left:50%;top:50%;width:68px;height:68px;transform:translate(-50%,-50%);border-radius:999px;
-    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18)}
-  @media (pointer:fine){#joy,#shoot,#act,#swap{display:none}}
+  #joy{pointer-events:auto;position:fixed;left:14px;bottom:150px;width:150px;height:150px;border-radius:999px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
+  #knob{position:absolute;left:50%;top:50%;width:64px;height:64px;transform:translate(-50%,-50%);
+    border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18)}
+  .mBtn{pointer-events:auto;position:fixed;right:14px;border-radius:18px;padding:14px 16px;
+    border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.35);color:#fff;font-weight:950}
+  .mBtn:active{transform:scale(.98)}
+  #action{bottom:18px}
+  #handbrake{bottom:86px}
+  #respawn{top:62px;padding:10px 14px;border-radius:14px}
+
+  @media (pointer:fine){#joy,.mBtn{display:none}}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div class="ui">
-  <div class="top" id="top">LAZARO WORLD — Neon Battleground</div>
+  <div class="top" id="top">LAZARO WORLD — Pixel City</div>
   <div class="hud" id="hud"></div>
+  <canvas class="mini" id="mini" width="140" height="140"></canvas>
 
-  <!-- Mobile -->
   <div id="joy"><div id="knob"></div></div>
-  <div class="mBtn" id="music">♫</div>
-  <div class="mBtn" id="swap">SWAP</div>
-  <div class="mBtn" id="shoot">SHOOT</div>
-  <div class="mBtn" id="act">ENTER</div>
-
-  <!-- Menu -->
-  <div class="panel" id="menu" style="display:none">
-    <div class="title">LAZARO WORLD</div>
-    <div class="sub">
-      <b>2D PUBG-ish cyberpunk</b>: loot, reload, armor, medkits, zone circle, neon FX, drivable car, waves, mini-boss.
-      Runs in your browser on GitHub Pages.
-    </div>
-
-    <div class="row" style="margin-bottom:10px">
-      <div class="btn primary" id="playBtn">PLAY</div>
-      <div class="btn" id="howBtn">HOW TO</div>
-      <div class="btn" id="resetBtn">RESET SAVE</div>
-    </div>
-
-    <div class="grid">
-      <div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">Music</div>
-        <div class="row">
-          <div class="btn" id="musicBtn">Toggle Music</div>
-        </div>
-        <div style="height:10px"></div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">Music Volume</div>
-        <input id="vol" type="range" min="0" max="100"/>
-        <div style="height:10px"></div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">FX Intensity (shake/glow)</div>
-        <input id="fx" type="range" min="0" max="100"/>
-      </div>
-
-      <div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">Aim Assist (mobile)</div>
-        <input id="aim" type="range" min="0" max="100"/>
-        <div style="height:10px"></div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">Difficulty</div>
-        <input id="dif" type="range" min="0" max="100"/>
-        <div style="height:10px"></div>
-        <div style="opacity:.85;font-size:12px;margin-bottom:6px">Graphics</div>
-        <div class="row">
-          <div class="btn" id="neonBtn">NEON</div>
-          <div class="btn" id="perfBtn">PERF</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="height:12px"></div>
-    <div style="opacity:.78;font-size:12px">
-      Tip: This is a starter “fun but playable” battleground. We can add skins, more cars, a bigger map, and real sprites later.
-    </div>
-  </div>
-
-  <div class="panel" id="how" style="display:none">
-    <div class="title" style="font-size:26px">How to play</div>
-    <div style="opacity:.9;line-height:1.55">
-      <b>Desktop:</b> WASD move • Mouse aim • Click/hold shoot • R reload • Q swap weapon • E enter/exit car • Space turbo<br/>
-      <b>Mobile:</b> joystick move • SHOOT • SWAP weapon • ENTER car • music button ♫<br/><br/>
-      <b>Loot:</b> Walk over crates for ammo/armor/medkits.<br/>
-      <b>Zone:</b> Stay inside the glowing circle. Outside = damage (shrinks over time).<br/>
-      <b>Goal:</b> survive, score points, don’t get deleted 💀
-    </div>
-    <div style="height:14px"></div>
-    <div class="row">
-      <div class="btn primary" id="backBtn">BACK</div>
-    </div>
-  </div>
+  <div class="mBtn" id="respawn">RESPAWN</div>
+  <div class="mBtn" id="handbrake">BRAKE</div>
+  <div class="mBtn" id="action">ACTION</div>
 </div>
 
 <script>
 (() => {
-  // --------- Setup ---------
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d', { alpha:false });
+  // ---------- Canvas ----------
+  const c = document.getElementById("c");
+  const ctx = c.getContext("2d", { alpha:false });
+  const mini = document.getElementById("mini");
+  const mctx = mini.getContext("2d");
 
-  const topEl = document.getElementById('top');
-  const hudEl = document.getElementById('hud');
-  const menuEl = document.getElementById('menu');
-  const howEl = document.getElementById('how');
+  const topEl = document.getElementById("top");
+  const hudEl = document.getElementById("hud");
 
   function resize(){
     const dpr = Math.max(1, Math.min(2, devicePixelRatio||1));
-    canvas.width = (innerWidth*dpr)|0;
-    canvas.height = (innerHeight*dpr)|0;
+    c.width = (innerWidth*dpr)|0;
+    c.height = (innerHeight*dpr)|0;
     ctx.setTransform(dpr,0,0,dpr,0,0);
   }
-  addEventListener('resize', resize); resize();
+  addEventListener("resize", resize); resize();
 
-  // --------- Save/settings ---------
-  const SAVE_KEY = "lazaro_world_neon_bg_v1";
-  const defaults = { vol: 40, fx: 70, aim: 45, dif: 45, neon: true, musicOn: false };
-  let settings = loadSave();
-  function loadSave(){
-    try{
-      const v = JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
-      return {...defaults, ...(v||{})};
-    }catch{ return {...defaults}; }
+  // ---------- World (tile map) ----------
+  // Mario-ish pixel vibe, GTA-ish open world: top-down tile city
+  const TILE = 16;
+  const MAP_W = 220;   // tiles
+  const MAP_H = 160;   // tiles
+  const WORLD_W = MAP_W*TILE;
+  const WORLD_H = MAP_H*TILE;
+
+  // Tile types:
+  // 0 = grass, 1 = road, 2 = sidewalk, 3 = water, 4 = building (solid)
+  const map = new Uint8Array(MAP_W*MAP_H);
+
+  const idx = (x,y)=> y*MAP_W + x;
+  const inb = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+
+  // Procedural city: roads grid + blocks + water strip
+  function gen(){
+    map.fill(0);
+
+    // water band
+    for(let y=0;y<MAP_H;y++){
+      for(let x=0;x<MAP_W;x++){
+        if(x>MAP_W-28) map[idx(x,y)] = 3;
+      }
+    }
+
+    // main roads
+    for(let y=0;y<MAP_H;y++){
+      for(let x=0;x<MAP_W-28;x++){
+        if(x%12===0 || y%12===0) map[idx(x,y)] = 1;
+      }
+    }
+
+    // sidewalks around roads
+    for(let y=1;y<MAP_H-1;y++){
+      for(let x=1;x<MAP_W-29;x++){
+        if(map[idx(x,y)]===0){
+          const nearRoad =
+            map[idx(x+1,y)]===1 || map[idx(x-1,y)]===1 || map[idx(x,y+1)]===1 || map[idx(x,y-1)]===1;
+          if(nearRoad) map[idx(x,y)] = 2;
+        }
+      }
+    }
+
+    // buildings in blocks (solid)
+    for(let y=2;y<MAP_H-2;y++){
+      for(let x=2;x<MAP_W-30;x++){
+        if(map[idx(x,y)]===0){
+          // fill some building lots
+          if(Math.random()<0.42){
+            // small building rectangle
+            const w = 2 + (Math.random()*5|0);
+            const h = 2 + (Math.random()*5|0);
+            // keep away from roads
+            let ok=true;
+            for(let yy=y; yy<y+h; yy++){
+              for(let xx=x; xx<x+w; xx++){
+                if(!inb(xx,yy) || map[idx(xx,yy)]!==0) ok=false;
+              }
+            }
+            if(ok){
+              for(let yy=y; yy<y+h; yy++){
+                for(let xx=x; xx<x+w; xx++){
+                  map[idx(xx,yy)] = 4;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // small park area
+    for(let y=24;y<44;y++){
+      for(let x=24;x<54;x++){
+        map[idx(x,y)] = 0;
+      }
+    }
   }
-  function save(){ localStorage.setItem(SAVE_KEY, JSON.stringify(settings)); }
+  gen();
 
-  // UI controls
-  const vol = document.getElementById('vol');
-  const fx  = document.getElementById('fx');
-  const aim = document.getElementById('aim');
-  const dif = document.getElementById('dif');
-  const neonBtn = document.getElementById('neonBtn');
-  const perfBtn = document.getElementById('perfBtn');
-  const musicBtn = document.getElementById('musicBtn');
-  const musicChip = document.getElementById('music');
-
-  vol.value=settings.vol; fx.value=settings.fx; aim.value=settings.aim; dif.value=settings.dif;
-  vol.addEventListener('input', ()=>{ settings.vol=+vol.value; if(audio.on) audio.master.gain.value=(settings.vol/100)*0.18; save(); });
-  fx.addEventListener('input',  ()=>{ settings.fx=+fx.value; save(); });
-  aim.addEventListener('input', ()=>{ settings.aim=+aim.value; save(); });
-  dif.addEventListener('input', ()=>{ settings.dif=+dif.value; save(); });
-  neonBtn.addEventListener('click', ()=>{ settings.neon=true; save(); toast("NEON MODE"); });
-  perfBtn.addEventListener('click', ()=>{ settings.neon=false; save(); toast("PERF MODE"); });
-
-  document.getElementById('resetBtn').addEventListener('click', ()=>{
-    localStorage.removeItem(SAVE_KEY);
-    settings = {...defaults};
-    vol.value=settings.vol; fx.value=settings.fx; aim.value=settings.aim; dif.value=settings.dif;
-    if(audio.on) audio.master.gain.value=(settings.vol/100)*0.18;
-    toast("RESET ✅");
-  });
-
-  document.getElementById('playBtn').addEventListener('click', ()=>startGame());
-  document.getElementById('howBtn').addEventListener('click', ()=>{ menuEl.style.display="none"; howEl.style.display="block"; });
-  document.getElementById('backBtn').addEventListener('click', ()=>{ howEl.style.display="none"; menuEl.style.display="block"; });
-
-  // --------- Toast ---------
-  let toastT=0, toastMsg="";
-  function toast(msg){ toastMsg=msg; toastT=1.2; }
-
-  // --------- Audio (generated, copyright-safe) ---------
-  let audio = { ctx:null, master:null, on:false, timer:0, step:0 };
-  function beep(freq, t, dur, type="square", gain=0.8){
-    const o = audio.ctx.createOscillator();
-    const g = audio.ctx.createGain();
-    o.type=type; o.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    o.connect(g); g.connect(audio.master);
-    o.start(t); o.stop(t+dur+0.02);
+  function tileAt(px,py){
+    const tx = (px/TILE)|0;
+    const ty = (py/TILE)|0;
+    if(!inb(tx,ty)) return 4;
+    return map[idx(tx,ty)];
   }
-  function startMusic(){
-    if(audio.on) return;
-    const AC = window.AudioContext||window.webkitAudioContext;
-    audio.ctx = new AC();
-    audio.master = audio.ctx.createGain();
-    audio.master.gain.value = (settings.vol/100)*0.18;
-    audio.master.connect(audio.ctx.destination);
-    audio.on=true;
-    audio.step=0;
-
-    audio.timer = setInterval(()=>{
-      const t = audio.ctx.currentTime;
-      const root = 196; // G
-      const scale = [0,3,5,7,10,12,15]; // minor-ish
-      const deg = scale[audio.step % scale.length];
-      const f = root * Math.pow(2, deg/12);
-      beep(f, t, 0.07, "square", 0.65);
-      if(audio.step%2===0) beep(f*1.5, t, 0.05, "triangle", 0.28);
-      if(audio.step%4===0) beep(f/2, t, 0.09, "sawtooth", 0.35);
-      if(audio.step%2===1) beep(900+Math.random()*90, t, 0.02, "square", 0.16);
-      audio.step++;
-    }, 120);
-
-    settings.musicOn=true; save();
-    musicBtn.textContent="Music: ON";
-    musicChip.textContent="♫ ON";
-    toast("MUSIC ON ♫");
+  function solidAt(px,py){
+    const t = tileAt(px,py);
+    return (t===4 || t===3); // buildings & water solid
   }
-  function stopMusic(){
-    if(!audio.on) return;
-    clearInterval(audio.timer);
-    audio.on=false; audio.timer=0;
-    try{ audio.ctx.close(); }catch{}
-    audio.ctx=null;
-    settings.musicOn=false; save();
-    musicBtn.textContent="Music: OFF";
-    musicChip.textContent="♫";
-    toast("MUSIC OFF");
-  }
-  function toggleMusic(){ audio.on ? stopMusic() : startMusic(); }
-  musicBtn.addEventListener('click', toggleMusic);
-  musicChip.addEventListener('click', toggleMusic);
 
-  // --------- Helpers ---------
-  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const rand=(a,b)=>a+Math.random()*(b-a);
-
-  // --------- Input ---------
+  // ---------- Input ----------
   const keys = new Set();
-  addEventListener('keydown', (e)=>{
-    const k=e.key.toLowerCase();
+  addEventListener("keydown", e=>{
+    const k = e.key.toLowerCase();
     keys.add(k);
-    if(k==="q") cycleWeapon();
-    if(k==="e") toggleCar();
-    if(k==="r") reload();
-    if(k==="escape" && mode==="play"){ mode="menu"; menuEl.style.display="block"; toast("MENU"); }
+    if(k==="e") action();
+    if(k==="r") respawn();
+    if(k===" ") handbrake = true;
   });
-  addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
+  addEventListener("keyup", e=>{
+    const k = e.key.toLowerCase();
+    keys.delete(k);
+    if(k===" ") handbrake = false;
+  });
 
-  let pointer={x:innerWidth/2,y:innerHeight/2,down:false};
-  addEventListener('pointermove', e=>{ pointer.x=e.clientX; pointer.y=e.clientY; });
-  addEventListener('pointerdown', e=>{ if(e.target && e.target.tagName==="INPUT") return; pointer.down=true; });
-  addEventListener('pointerup', ()=>pointer.down=false);
+  let pointer = {x:innerWidth/2,y:innerHeight/2};
+  addEventListener("pointermove", e=>{ pointer.x=e.clientX; pointer.y=e.clientY; });
 
   // Mobile joystick
-  const joy = document.getElementById('joy');
-  const knob = document.getElementById('knob');
-  const shootBtn = document.getElementById('shoot');
-  const actBtn = document.getElementById('act');
-  const swapBtn = document.getElementById('swap');
+  const joy = document.getElementById("joy");
+  const knob = document.getElementById("knob");
+  let joyState = {id:null,active:false,dx:0,dy:0};
 
-  let joyState={id:null,active:false,dx:0,dy:0};
   function setKnob(dx,dy){
     const max=46;
-    const x=clamp(dx*max,-max,max);
-    const y=clamp(dy*max,-max,max);
-    knob.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+    knob.style.transform = `translate(calc(-50% + ${dx*max}px), calc(-50% + ${dy*max}px))`;
   }
-  const joyRect=()=>joy.getBoundingClientRect();
-  joy.addEventListener('pointerdown', (e)=>{
+  function joyRect(){ return joy.getBoundingClientRect(); }
+  joy.addEventListener("pointerdown", e=>{
     joyState.id=e.pointerId; joyState.active=true; joy.setPointerCapture(e.pointerId);
   });
-  joy.addEventListener('pointermove', (e)=>{
-    if(!joyState.active||e.pointerId!==joyState.id) return;
+  joy.addEventListener("pointermove", e=>{
+    if(!joyState.active || e.pointerId!==joyState.id) return;
     const r=joyRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2;
     const vx=e.clientX-cx, vy=e.clientY-cy;
     const max=r.width/2-10;
-    joyState.dx=clamp(vx/max,-1,1);
-    joyState.dy=clamp(vy/max,-1,1);
+    joyState.dx = Math.max(-1,Math.min(1,vx/max));
+    joyState.dy = Math.max(-1,Math.min(1,vy/max));
     setKnob(joyState.dx, joyState.dy);
   });
   function joyReset(){ joyState.active=false; joyState.id=null; joyState.dx=0; joyState.dy=0; setKnob(0,0); }
-  joy.addEventListener('pointerup', (e)=>{ if(e.pointerId===joyState.id) joyReset(); });
-  joy.addEventListener('pointercancel', joyReset);
+  joy.addEventListener("pointerup", e=>{ if(e.pointerId===joyState.id) joyReset(); });
+  joy.addEventListener("pointercancel", joyReset);
 
-  let shootHeld=false;
-  shootBtn.addEventListener('pointerdown', ()=>shootHeld=true);
-  shootBtn.addEventListener('pointerup', ()=>shootHeld=false);
-  actBtn.addEventListener('click', ()=>toggleCar());
-  swapBtn.addEventListener('click', ()=>cycleWeapon());
+  // Mobile buttons
+  document.getElementById("action").addEventListener("click", ()=>action());
+  document.getElementById("respawn").addEventListener("click", ()=>respawn());
+  let handbrake=false;
+  document.getElementById("handbrake").addEventListener("pointerdown", ()=>handbrake=true);
+  document.getElementById("handbrake").addEventListener("pointerup", ()=>handbrake=false);
 
-  // --------- World ---------
-  const WORLD = { w: 3400, h: 2200 };
-  let cam={x:0,y:0};
-  let shake={t:0,mag:0};
-
-  function addShake(m){
-    const s=settings.fx/100;
-    shake.mag = Math.max(shake.mag, m*s);
-    shake.t = 0.18;
-  }
-
-  // --------- PUBG-ish systems ---------
-  const weapons = [
-    { id:"Pistol", mag:12, spare:Infinity, fire:0.18, dmg:18, spread:0.03, speed:900, hue:190, recoil:0.05 },
-    { id:"SMG",    mag:30, spare:120,     fire:0.07, dmg:11, spread:0.06, speed:980, hue:200, recoil:0.09 },
-    { id:"AR",     mag:30, spare:150,     fire:0.09, dmg:15, spread:0.045,speed:1020,hue:220, recoil:0.08 },
-    { id:"Shotgun",mag:6,  spare:36,      fire:0.70, dmg:9,  spread:0.16, speed:820, hue:55,  recoil:0.18, pellets:7 },
-    { id:"Sniper", mag:5,  spare:15,      fire:0.95, dmg:72, spread:0.015,speed:1450,hue:280, recoil:0.06 },
-  ];
-
+  // ---------- Entities ----------
   const player = {
-    x: 520, y: 640, r: 18,
-    hp: 100, maxHp: 100,
-    armor: 0, maxArmor: 100,
-    speed: 260,
-    score: 0,
-    inCar: false,
-    weaponSlot: 2, // start AR-ish
-    mag: 30,
-    spare: 150,
-    cd: 0,
-    reloadT: 0,
-    heat: 0, // recoil/accuracy penalty
-    wave: 1
+    x: 520, y: 520, r: 7,
+    hp: 100,
+    money: 0,
+    wanted: 0,
+    inCar: false
   };
 
-  function equip(slot){
-    player.weaponSlot = slot;
-    const w = weapons[slot];
-    // keep current ammo if same weapon? for simplicity load defaults on start; after that persist per-slot:
-    if(!player.inventory) player.inventory = weapons.map(w=>({mag:w.mag, spare:w.spare}));
-    const inv = player.inventory[slot];
-    player.mag = inv.magNow ?? inv.magCap ?? w.mag;
-    player.spare = inv.spareNow ?? inv.spareCap ?? w.spare;
-    toast(`WEAPON: ${w.id}`);
+  const cars = [];
+  function spawnCar(x,y,color){
+    cars.push({x,y,w:22,h:14,a:0,spd:0,color,health:100,driver:false});
+  }
+  // spawn some cars on roads
+  for(let i=0;i<18;i++){
+    spawnCar( rand(100,WORLD_W-500), rand(100,WORLD_H-100), ["#ff4d6d","#3cffcc","#ffd166","#7b3cff"][i%4] );
   }
 
-  function syncAmmo(){
-    if(!player.inventory) return;
-    const w=weapons[player.weaponSlot];
-    const inv=player.inventory[player.weaponSlot];
-    inv.magCap = w.mag;
-    inv.spareCap = w.spare;
-    inv.magNow = player.mag;
-    inv.spareNow = player.spare;
+  const cops = [];
+  function spawnCop(x,y){
+    cops.push({x,y,r:7,spd:110,hp:40,cd:0});
   }
 
-  function cycleWeapon(){
-    if(player.reloadT>0) return;
-    syncAmmo();
-    player.weaponSlot = (player.weaponSlot + 1) % weapons.length;
-    const w=weapons[player.weaponSlot];
-    const inv=player.inventory[player.weaponSlot];
-    player.mag = inv.magNow ?? w.mag;
-    player.spare = inv.spareNow ?? w.spare;
-    toast(`WEAPON: ${w.id}`);
+  // Mission marker
+  const mission = { x: 880, y: 300, r: 16, active:true };
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  // ---------- Camera ----------
+  const cam = {x:0,y:0};
+  function updateCam(){
+    cam.x = Math.max(0, Math.min(WORLD_W-innerWidth, player.x - innerWidth/2));
+    cam.y = Math.max(0, Math.min(WORLD_H-innerHeight, player.y - innerHeight/2));
   }
 
-  function reload(){
-    if(player.reloadT>0) return;
-    const w=weapons[player.weaponSlot];
-    if(player.mag>=w.mag) return;
-    if(player.spare<=0) { toast("NO AMMO"); return; }
-    player.reloadT = (player.weaponSlot===4?1.05:0.85); // sniper slower
-    toast("RELOADING…");
-  }
+  function screenToWorld(sx,sy){ return {x:sx+cam.x, y:sy+cam.y}; }
 
-  function applyReload(dt){
-    if(player.reloadT<=0) return;
-    player.reloadT = Math.max(0, player.reloadT-dt);
-    if(player.reloadT===0){
-      const w=weapons[player.weaponSlot];
-      const need = w.mag - player.mag;
-      const take = Math.min(need, player.spare);
-      player.mag += take;
-      player.spare -= take;
-      syncAmmo();
-      toast("RELOADED ✅");
+  // ---------- Game actions ----------
+  function nearestCar(){
+    let best=null, bd=1e9;
+    for(const car of cars){
+      const d = Math.hypot(car.x-player.x, car.y-player.y);
+      if(d<bd){ bd=d; best=car; }
     }
+    return {car:best, dist:bd};
   }
 
-  // Drivable car (simple)
-  const car = { name:"Neon Runner", x: 1350, y: 980, w: 96, h: 56, a:0, sp:0, hp: 140, maxHp:140 };
-  let turbo=false;
-
-  function toggleCar(){
-    if(player.inCar){
-      player.inCar=false;
-      player.x = car.x + 90;
-      player.y = car.y;
-      toast("EXIT CAR");
+  function action(){
+    // Enter/Exit car or do mission
+    const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
+    if(mission.active && dM < mission.r+10){
+      mission.active=false;
+      player.money += 250;
+      player.wanted = Math.min(5, player.wanted + 1);
+      toast("MISSION DONE +$250 (Wanted +1)");
       return;
     }
-    const d=Math.hypot(player.x-car.x, player.y-car.y);
-    if(d<92){
-      player.inCar=true;
-      player.x=car.x; player.y=car.y;
-      toast("ENTER CAR 🚗");
-    } else toast("GET CLOSER TO CAR");
-  }
 
-  // Loot crates
-  const loot=[];
-  function spawnLoot(x,y){
-    const r=Math.random();
-    if(r<0.38) loot.push({type:"med", x,y, r:12, val:30});
-    else if(r<0.70) loot.push({type:"armor", x,y, r:12, val:35});
-    else loot.push({type:"ammo", x,y, r:12, val:40});
-  }
-
-  // Enemies (bots)
-  const enemies=[];
-  function spawnEnemy(type="bot"){
-    const pad=140;
-    let x=rand(pad, WORLD.w-pad), y=rand(pad, WORLD.h-pad);
-    if(Math.hypot(x-player.x,y-player.y)<420){ x=clamp(x+560,pad,WORLD.w-pad); y=clamp(y+360,pad,WORLD.h-pad); }
-    if(type==="boss"){
-      enemies.push({type:"boss", x,y, r:42, hp:520, maxHp:520, spd:105, dmg:22, cd:0});
-    } else if(type==="brute"){
-      enemies.push({type:"brute", x,y, r:26, hp:120, maxHp:120, spd:135, dmg:16, cd:0});
+    const {car, dist} = nearestCar();
+    if(!player.inCar){
+      if(car && dist < 26){
+        player.inCar = true;
+        car.driver = true;
+        toast("ENTER CAR");
+      } else {
+        // cause "chaos" (simple punch) -> wanted
+        player.wanted = Math.min(5, player.wanted + 0.5);
+        toast("CHAOS! (Wanted up)");
+      }
     } else {
-      enemies.push({type:"bot", x,y, r:18, hp:55, maxHp:55, spd:165, dmg:12, cd:0});
-    }
-  }
-  function startWave(w){
-    player.wave=w;
-    const diff=settings.dif/100;
-    const count=Math.floor((10+w*3) * (0.9+diff*0.9));
-    for(let i=0;i<count;i++) spawnEnemy("bot");
-    if(w%3===0) for(let i=0;i<Math.floor(2+diff*3);i++) spawnEnemy("brute");
-    if(w%5===0) spawnEnemy("boss");
-    toast(`WAVE ${w}`);
-  }
-
-  // Zone (shrinking circle)
-  const zone = { x: WORLD.w/2, y: WORLD.h/2, r: 980, targetR: 980, t:0 };
-  function zoneUpdate(dt){
-    zone.t += dt;
-    // every ~20s shrink target
-    if(zone.t > 20){
-      zone.t = 0;
-      zone.targetR = Math.max(260, zone.targetR - 120);
-      toast("ZONE SHRINKING ⚠️");
-    }
-    zone.r += (zone.targetR - zone.r) * (1 - Math.pow(0.001, dt)); // smooth
-  }
-
-  // Bullets & particles
-  const bullets=[];
-  const particles=[];
-
-  function explosion(x,y, power=1){
-    addShake(10*power);
-    const n = settings.neon ? 130 : 80;
-    for(let i=0;i<n;i++){
-      const a=Math.random()*Math.PI*2;
-      const sp=rand(120, 900)*power;
-      particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rand(0.15,0.55),kind:"spark",hue:rand(160,320)});
-    }
-  }
-
-  function shoot(worldX, worldY){
-    if(player.cd>0 || player.reloadT>0) return;
-
-    const w = weapons[player.weaponSlot];
-
-    // ammo rules
-    if(player.weaponSlot!==0 && player.mag<=0){
-      toast("EMPTY — PRESS R");
-      player.cd=0.25;
-      return;
-    }
-
-    // aim direction
-    const sx = player.x, sy = player.y;
-    let dx = worldX - sx, dy = worldY - sy;
-
-    // aim assist (mobile)
-    const aAssist = settings.aim/100;
-    if(aAssist>0.01 && enemies.length){
-      let best=null, bd=1e9;
-      for(const e of enemies){
-        const d=Math.hypot(e.x-sx, e.y-sy);
-        if(d<bd){ bd=d; best=e; }
-      }
-      if(best && bd<540){
-        dx = dx*(1-aAssist*0.55) + (best.x-sx)*(aAssist*0.55);
-        dy = dy*(1-aAssist*0.55) + (best.y-sy)*(aAssist*0.55);
+      // exit current car
+      for(const car of cars){
+        if(car.driver){
+          car.driver=false;
+          player.inCar=false;
+          player.x = car.x + 28;
+          player.y = car.y;
+          toast("EXIT CAR");
+          break;
+        }
       }
     }
+  }
 
-    // recoil/spread
-    player.heat = clamp(player.heat + w.recoil, 0, 1);
-    const spread = w.spread * (0.55 + player.heat*1.25);
-    const ang = Math.atan2(dy,dx) + rand(-spread, spread);
+  function respawn(){
+    player.x=520; player.y=520; player.hp=100;
+    player.wanted = Math.max(0, player.wanted-1);
+    // exit car if in one
+    for(const car of cars) car.driver=false;
+    player.inCar=false;
+    toast("RESPAWN");
+  }
 
-    // firing rate
-    player.cd = w.fire;
-    if(player.weaponSlot!==0) player.mag--;
+  // ---------- Simple toast ----------
+  let toastMsg="", toastT=0;
+  function toast(m){ toastMsg=m; toastT=1.3; }
 
-    // pellets for shotgun
-    const pellets = w.pellets || 1;
-    for(let i=0;i<pellets;i++){
-      const a2 = ang + (pellets>1 ? rand(-spread*1.6, spread*1.6) : 0);
-      const sp = w.speed * (0.92 + Math.random()*0.14);
-      bullets.push({x:sx,y:sy,vx:Math.cos(a2)*sp,vy:Math.sin(a2)*sp,life:1.8,r:4,dmg:w.dmg,hue:w.hue});
+  // ---------- Physics helpers ----------
+  function moveWithCollide(obj, dx, dy, radius){
+    // Try X then Y (simple AABB-ish collision against solid tiles)
+    let nx=obj.x+dx, ny=obj.y;
+
+    // X
+    if(!collidesCircle(nx, ny, radius)) obj.x=nx;
+
+    // Y
+    nx=obj.x; ny=obj.y+dy;
+    if(!collidesCircle(nx, ny, radius)) obj.y=ny;
+  }
+
+  function collidesCircle(x,y,r){
+    // sample around circle
+    const pts = [
+      [x+r,y],[x-r,y],[x,y+r],[x,y-r],
+      [x+r*0.7,y+r*0.7],[x-r*0.7,y+r*0.7],[x+r*0.7,y-r*0.7],[x-r*0.7,y-r*0.7]
+    ];
+    for(const [px,py] of pts){
+      if(solidAt(px,py)) return true;
     }
-
-    // muzzle sparks
-    const n = settings.neon ? 18 : 10;
-    for(let i=0;i<n;i++){
-      particles.push({x:sx,y:sy,vx:Math.cos(ang)*rand(120,420)+rand(-120,120),vy:Math.sin(ang)*rand(120,420)+rand(-120,120),life:rand(0.06,0.22),kind:"spark",hue:rand(160,320)});
-    }
-    addShake( (player.weaponSlot===4?7:3) ); // sniper shake more
+    return false;
   }
 
-  // --------- Rendering helpers ---------
-  function neonShadow(h, a=0.28, blur=22){
-    ctx.shadowColor = `hsla(${h},100%,60%,${a})`;
-    ctx.shadowBlur = blur;
-  }
-
-  // --------- Game state ---------
-  let mode="loading";
-  let waveStarted=false;
-
-  function startGame(){
-    menuEl.style.display="none";
-    howEl.style.display="none";
-    mode="play";
-    if(settings.musicOn) startMusic();
-    toast("DROP IN 😈");
-  }
-
-  // --------- Camera / conversions ---------
-  function screenToWorld(sx,sy){ return { x: sx+cam.x, y: sy+cam.y }; }
-
-  // --------- Main loop ---------
+  // ---------- Update loop ----------
   let last=performance.now();
-  function loop(now){
-    const dt=Math.min(0.033,(now-last)/1000);
+  function tick(now){
+    const dt = Math.min(0.033, (now-last)/1000);
     last=now;
 
-    if(mode==="loading"){
-      // quick loading splash
-      ctx.fillStyle="#070815";
-      ctx.fillRect(0,0,innerWidth,innerHeight);
-      ctx.fillStyle="rgba(255,255,255,0.9)";
-      ctx.font="1000 34px system-ui";
-      ctx.textAlign="center";
-      ctx.fillText("LAZARO WORLD", innerWidth/2, innerHeight/2-10);
-      ctx.font="700 13px system-ui";
-      ctx.fillText("Neon Battleground (2D)", innerWidth/2, innerHeight/2+20);
-      menuEl.style.display="block";
-      mode="menu";
-      requestAnimationFrame(loop);
-      return;
-    }
+    update(dt);
+    render(now/1000);
 
-    if(mode==="menu"){
-      renderMenuBackdrop(now/1000);
-      requestAnimationFrame(loop);
-      return;
-    }
-
-    if(mode==="play"){
-      update(dt);
-      render(now/1000);
-      requestAnimationFrame(loop);
-      return;
-    }
-
-    requestAnimationFrame(loop);
+    requestAnimationFrame(tick);
   }
 
-  // Menu background
-  function renderMenuBackdrop(t){
-    const g=ctx.createLinearGradient(0,0,innerWidth,innerHeight);
-    g.addColorStop(0,"#06081a"); g.addColorStop(1,"#12082a");
-    ctx.fillStyle=g; ctx.fillRect(0,0,innerWidth,innerHeight);
-    for(let i=0;i<40;i++){
-      const x=(Math.sin(t*0.6+i)*0.5+0.5)*innerWidth;
-      const y=(Math.cos(t*0.4+i)*0.5+0.5)*innerHeight;
-      ctx.fillStyle="rgba(60,220,255,0.03)";
-      ctx.beginPath(); ctx.arc(x,y,120,0,Math.PI*2); ctx.fill();
-    }
-  }
-
-  // Update
   function update(dt){
-    if(!waveStarted){
-      // reset everything
-      enemies.length=0; loot.length=0; bullets.length=0; particles.length=0;
-      player.x=520; player.y=640;
-      player.hp=player.maxHp; player.armor=0; player.score=0;
-      player.inCar=false; car.x=1350; car.y=980; car.a=0; car.sp=0; car.hp=car.maxHp;
-      zone.r=980; zone.targetR=980; zone.t=0; zone.x=WORLD.w/2; zone.y=WORLD.h/2;
+    // Wanted decay
+    player.wanted = Math.max(0, player.wanted - dt*0.03);
 
-      // inventory + equip
-      player.inventory = weapons.map(w=>({magCap:w.mag, spareCap:w.spare, magNow:w.mag, spareNow:w.spare}));
-      equip(2);
-
-      // scatter some loot
-      for(let i=0;i<26;i++) spawnLoot(rand(120,WORLD.w-120), rand(120,WORLD.h-120));
-      startWave(1);
-      waveStarted=true;
+    // Spawn cops based on wanted
+    const targetCops = Math.floor(player.wanted*2);
+    while(cops.length < targetCops){
+      spawnCop(player.x + rand(-280,280), player.y + rand(-280,280));
     }
+    while(cops.length > targetCops) cops.pop();
 
-    // movement input
+    // Control
     let mx=0,my=0;
     if(keys.has("w")||keys.has("arrowup")) my-=1;
     if(keys.has("s")||keys.has("arrowdown")) my+=1;
     if(keys.has("a")||keys.has("arrowleft")) mx-=1;
     if(keys.has("d")||keys.has("arrowright")) mx+=1;
 
-    mx += joyState.dx; my += joyState.dy;
-    const m=Math.hypot(mx,my);
+    mx += joyState.dx;
+    my += joyState.dy;
+
+    const m = Math.hypot(mx,my);
     if(m>1e-6){ mx/=m; my/=m; }
 
-    // turbo
-    turbo = keys.has(" ") || keys.has("space");
+    // If in car: drive
+    if(player.inCar){
+      const car = cars.find(c=>c.driver);
+      if(car){
+        // steering uses pointer direction (desktop) or movement vector (mobile)
+        let steerX = mx, steerY = my;
+        if(matchMedia("(pointer:fine)").matches){
+          const w = screenToWorld(pointer.x, pointer.y);
+          steerX = w.x - car.x;
+          steerY = w.y - car.y;
+          const d = Math.hypot(steerX, steerY) || 1;
+          steerX/=d; steerY/=d;
+        }
+        // accelerate
+        car.spd += 520*dt;
+        car.spd *= (handbrake ? (1-6*dt) : (1-2.2*dt));
+        car.spd = Math.min(car.spd, handbrake?120:260);
 
-    // cooldowns
-    player.cd = Math.max(0, player.cd - dt);
-    player.heat = Math.max(0, player.heat - dt*0.8);
-
-    applyReload(dt);
-
-    // move player or car
-    if(!player.inCar){
-      player.x += mx*player.speed*dt;
-      player.y += my*player.speed*dt;
-      player.x=clamp(player.x,40,WORLD.w-40);
-      player.y=clamp(player.y,40,WORLD.h-40);
-    } else {
-      // car controls: steer toward input direction
-      const driveMag=Math.hypot(mx,my);
-      if(driveMag>0.08){
-        const targetA=Math.atan2(my,mx);
-        let da=targetA-car.a;
+        // turn toward steer vector
+        const targetA = Math.atan2(steerY, steerX);
+        let da = targetA - car.a;
         while(da>Math.PI) da-=Math.PI*2;
         while(da<-Math.PI) da+=Math.PI*2;
-        car.a += clamp(da, -3.2*dt, 3.2*dt);
-        car.sp += 820*dt;
-      } else {
-        car.sp -= 720*dt;
+        car.a += Math.max(-3.4*dt, Math.min(3.4*dt, da));
+
+        // move car with collision
+        const dx = Math.cos(car.a)*car.spd*dt;
+        const dy = Math.sin(car.a)*car.spd*dt;
+        moveWithCollide(car, dx, dy, 10);
+
+        // player rides
+        player.x = car.x;
+        player.y = car.y;
+
+        // Chaos by driving on sidewalks/buildings increases wanted
+        const t = tileAt(car.x, car.y);
+        if(t===2) player.wanted = Math.min(5, player.wanted + dt*0.05);
+        if(t===4) player.wanted = Math.min(5, player.wanted + dt*0.08);
       }
-      const tMul = turbo ? 1.35 : 1.0;
-      if(turbo && car.hp>0){ car.hp = Math.max(0, car.hp - 20*dt); addShake(2); }
-      car.sp = clamp(car.sp, 0, 620*tMul);
-      car.x += Math.cos(car.a)*car.sp*dt;
-      car.y += Math.sin(car.a)*car.sp*dt;
-      car.x=clamp(car.x,60,WORLD.w-60);
-      car.y=clamp(car.y,60,WORLD.h-60);
-      player.x=car.x; player.y=car.y;
+    } else {
+      // Walk
+      const spd = 140;
+      moveWithCollide(player, mx*spd*dt, my*spd*dt, player.r);
     }
 
-    // shooting
-    const aimW = screenToWorld(pointer.x, pointer.y);
-    const shooting = pointer.down || shootHeld;
-    if(shooting) shoot(aimW.x, aimW.y);
+    // Cop AI chase
+    for(const cop of cops){
+      const dx = player.x - cop.x;
+      const dy = player.y - cop.y;
+      const d = Math.hypot(dx,dy) || 1;
+      const vx = (dx/d)*cop.spd;
+      const vy = (dy/d)*cop.spd;
+      moveWithCollide(cop, vx*dt, vy*dt, cop.r);
 
-    // update bullets
-    for(let i=bullets.length-1;i>=0;i--){
-      const b=bullets[i];
-      b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
-      if(b.life<=0){ bullets.splice(i,1); continue; }
-
-      // hit enemies
-      for(let j=enemies.length-1;j>=0;j--){
-        const e=enemies[j];
-        const dx=b.x-e.x, dy=b.y-e.y;
-        if(dx*dx+dy*dy < (e.r+b.r)*(e.r+b.r)){
-          bullets.splice(i,1);
-          e.hp -= b.dmg;
-
-          // hit sparks
-          const n=settings.neon?24:12;
-          for(let k=0;k<n;k++){
-            particles.push({x:e.x,y:e.y,vx:rand(-320,320),vy:rand(-320,320),life:rand(0.08,0.25),kind:"spark",hue:rand(140,320)});
-          }
-          addShake(4);
-
-          if(e.hp<=0){
-            player.score += (e.type==="boss"?30:e.type==="brute"?8:4);
-            spawnLoot(e.x,e.y);
-            enemies.splice(j,1);
-          }
-          break;
+      // "damage" if close
+      if(d < 18){
+        player.hp = Math.max(0, player.hp - 18*dt);
+        if(player.hp<=0){
+          toast("WASTED 💀");
+          respawn();
         }
       }
-
-      if(b.x<-200||b.y<-200||b.x>WORLD.w+200||b.y>WORLD.h+200) bullets.splice(i,1);
     }
 
-    // enemies chase + damage
-    const diff=settings.dif/100;
-    for(const e of enemies){
-      const dx=player.x-e.x, dy=player.y-e.y;
-      const d=Math.max(1,Math.hypot(dx,dy));
-      e.x += (dx/d) * e.spd * (0.9+diff*0.9) * dt;
-      e.y += (dy/d) * e.spd * (0.9+diff*0.9) * dt;
+    updateCam();
 
-      // contact damage
-      const rr=e.r+player.r;
-      if(dx*dx+dy*dy < rr*rr){
-        const raw = e.dmg*(0.9+diff);
-        let dmg = raw;
-        // armor reduces some damage first
-        if(player.armor>0){
-          const soak = Math.min(player.armor, dmg*0.65);
-          player.armor -= soak;
-          dmg -= soak*0.6;
-        }
-        player.hp -= dmg*dt*(player.inCar?0.7:1.0);
-
-        if(player.inCar){
-          car.hp -= raw*dt*(0.75+diff*0.6);
-          if(car.hp<=0){
-            car.hp=0; player.inCar=false;
-            toast("CAR WRECKED 💥");
-            explosion(car.x,car.y,1.2);
-          }
-        }
-        player.hp=Math.max(0,player.hp);
+    // Mission completion check (also by walking into it)
+    if(mission.active){
+      const dM = Math.hypot(player.x-mission.x, player.y-mission.y);
+      if(dM < mission.r+8){
+        mission.active=false;
+        player.money += 250;
+        player.wanted = Math.min(5, player.wanted + 1);
+        toast("MISSION DONE +$250 (Wanted +1)");
       }
     }
 
-    // loot pickup
-    for(let i=loot.length-1;i>=0;i--){
-      const l=loot[i];
-      if(Math.hypot(l.x-player.x,l.y-player.y) < 34){
-        if(l.type==="med"){
-          player.hp = clamp(player.hp + l.val, 0, player.maxHp);
-          toast("+MED");
-        } else if(l.type==="armor"){
-          player.armor = clamp(player.armor + l.val, 0, player.maxArmor);
-          toast("+ARMOR");
-        } else {
-          // ammo adds to spare for current weapon (except pistol)
-          if(player.weaponSlot!==0){
-            player.spare += l.val;
-            toast("+AMMO");
-          } else toast("PISTOL OK");
-          syncAmmo();
-        }
-        loot.splice(i,1);
-      }
-    }
-
-    // particles
-    for(let i=particles.length-1;i>=0;i--){
-      const p=particles[i];
-      p.x += p.vx*dt; p.y += p.vy*dt;
-      p.vx *= (1-2.8*dt); p.vy *= (1-2.8*dt);
-      p.life -= dt;
-      if(p.life<=0) particles.splice(i,1);
-    }
-
-    // zone
-    zoneUpdate(dt);
-    const dz = Math.hypot(player.x-zone.x, player.y-zone.y);
-    if(dz > zone.r){
-      player.hp = Math.max(0, player.hp - (10 + player.wave*0.5)*dt);
-      addShake(2);
-    }
-
-    // next wave
-    if(enemies.length===0){
-      startWave(player.wave+1);
-      // add some loot between waves
-      for(let i=0;i<6;i++) spawnLoot(rand(120,WORLD.w-120), rand(120,WORLD.h-120));
-    }
-
-    // camera
-    cam.x = clamp(player.x - innerWidth/2, 0, WORLD.w-innerWidth);
-    cam.y = clamp(player.y - innerHeight/2, 0, WORLD.h-innerHeight);
-
-    // shake decay
-    if(shake.t>0){
-      shake.t -= dt;
-      shake.mag *= (1 - 6*dt);
-      if(shake.t<=0){ shake.t=0; shake.mag=0; }
-    }
-
-    updateHUD();
+    // Toast timer
+    if(toastT>0) toastT -= dt;
   }
 
-  // HUD
-  function updateHUD(){
-    const w=weapons[player.weaponSlot];
-    const ammoTxt = (player.weaponSlot===0) ? "∞" : `${player.mag}/${player.spare}`;
-    hudEl.innerHTML =
-      `<b>HP</b> ${Math.floor(player.hp)}/${player.maxHp} `+
-      `<b>Armor</b> ${Math.floor(player.armor)}/${player.maxArmor} `+
-      `<b>Weapon</b> ${w.id} `+
-      `<b>Ammo</b> ${ammoTxt} `+
-      `<b>Wave</b> ${player.wave} `+
-      `<b>Score</b> ${player.score} `+
-      `<span style="opacity:.75"> • ${player.inCar ? "Driving 🚗 (Space turbo)" : "On foot"}${player.reloadT>0?" • Reloading…":""}</span>`;
-    actBtn.textContent = player.inCar ? "EXIT" : "ENTER";
-    swapBtn.textContent = w.id;
-    musicBtn.textContent = audio.on ? "Music: ON" : "Music: OFF";
-    musicChip.textContent = audio.on ? "♫ ON" : "♫";
-  }
-
-  // Render
+  // ---------- Render ----------
   function render(t){
-    // background
-    const g=ctx.createLinearGradient(0,0,innerWidth,innerHeight);
-    g.addColorStop(0,"#050611"); g.addColorStop(1,"#11062a");
-    ctx.fillStyle=g;
+    ctx.fillStyle="#0b0f1e";
     ctx.fillRect(0,0,innerWidth,innerHeight);
 
-    // shake
-    let sx=0,sy=0;
-    if(shake.t>0){ sx=rand(-shake.mag, shake.mag); sy=rand(-shake.mag, shake.mag); }
-
     ctx.save();
-    ctx.translate(-cam.x+sx, -cam.y+sy);
+    ctx.translate(-cam.x, -cam.y);
 
-    // neon grid
-    for(let x=0;x<=WORLD.w;x+=92){
-      ctx.strokeStyle="rgba(255,255,255,0.035)";
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD.h); ctx.stroke();
-    }
-    for(let y=0;y<=WORLD.h;y+=92){
-      ctx.strokeStyle="rgba(255,255,255,0.035)";
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD.w,y); ctx.stroke();
-    }
+    // Tiles (simple pixel palette)
+    for(let ty=0; ty<MAP_H; ty++){
+      const y = ty*TILE;
+      // cull rows not visible
+      if(y > cam.y+innerHeight+TILE || y+TILE < cam.y-TILE) continue;
 
-    // zone circle
-    if(settings.neon) neonShadow(190,0.22,24);
-    ctx.strokeStyle="rgba(60,220,255,0.25)";
-    ctx.lineWidth=6;
-    ctx.beginPath(); ctx.arc(zone.x, zone.y, zone.r, 0, Math.PI*2); ctx.stroke();
-    ctx.shadowBlur=0;
+      for(let tx=0; tx<MAP_W; tx++){
+        const x = tx*TILE;
+        if(x > cam.x+innerWidth+TILE || x+TILE < cam.x-TILE) continue;
 
-    // loot
-    for(const l of loot){
-      const hue = l.type==="med"?120 : l.type==="armor"?280 : 200;
-      if(settings.neon) neonShadow(hue,0.28,20);
-      ctx.fillStyle=`hsla(${hue},100%,60%,0.92)`;
-      ctx.beginPath(); ctx.arc(l.x,l.y,l.r,0,Math.PI*2); ctx.fill();
-      ctx.shadowBlur=0;
+        const tId = map[idx(tx,ty)];
+        if(tId===0){ ctx.fillStyle="#1a2b1f"; }        // grass
+        else if(tId===1){ ctx.fillStyle="#2b2f3a"; }   // road
+        else if(tId===2){ ctx.fillStyle="#3a3f4b"; }   // sidewalk
+        else if(tId===3){ ctx.fillStyle="#0b2a4a"; }   // water
+        else { ctx.fillStyle="#18141f"; }              // building
+        ctx.fillRect(x,y,TILE,TILE);
 
-      // tiny icon lines
-      ctx.strokeStyle="rgba(0,0,0,0.35)";
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(l.x-6,l.y); ctx.lineTo(l.x+6,l.y);
-      if(l.type!=="ammo"){ ctx.moveTo(l.x,l.y-6); ctx.lineTo(l.x,l.y+6); }
-      ctx.stroke();
-    }
-
-    // car
-    if(settings.neon) neonShadow(330,0.22,26);
-    ctx.save();
-    ctx.translate(car.x,car.y);
-    ctx.rotate(car.a);
-    ctx.fillStyle="rgba(255,58,107,0.92)";
-    roundRect(-car.w/2,-car.h/2,car.w,car.h,16);
-    ctx.fill();
-    ctx.fillStyle="rgba(255,255,255,0.70)";
-    roundRect(-car.w/2+12,-7,car.w-24,14,10);
-    ctx.fill();
-    ctx.restore();
-    ctx.shadowBlur=0;
-
-    // hint ring near car
-    if(!player.inCar){
-      const d=Math.hypot(player.x-car.x, player.y-car.y);
-      if(d<92){
-        ctx.strokeStyle="rgba(255,255,255,0.22)";
-        ctx.lineWidth=3;
-        ctx.beginPath(); ctx.arc(car.x,car.y,80,0,Math.PI*2); ctx.stroke();
+        // tiny pixel detail
+        if(tId===1 && ((tx+ty)&3)===0){
+          ctx.fillStyle="rgba(255,255,255,0.06)";
+          ctx.fillRect(x+7,y+7,2,2);
+        }
+        if(tId===0 && ((tx*13+ty*7)&15)===0){
+          ctx.fillStyle="rgba(0,0,0,0.12)";
+          ctx.fillRect(x+4,y+4,2,2);
+        }
       }
     }
 
-    // enemies
-    for(const e of enemies){
-      const hue = e.type==="boss"? 330 : e.type==="brute"? 25 : 10;
-      if(settings.neon) neonShadow(hue,0.25,22);
-      ctx.fillStyle = e.type==="boss" ? "rgba(255,60,180,0.93)" :
-                     e.type==="brute"? "rgba(255,140,60,0.93)" :
-                     "rgba(255,70,70,0.93)";
-      ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
-      ctx.shadowBlur=0;
-
-      // hp bar
-      const w=66,h=7;
-      const hp=clamp(e.hp/e.maxHp,0,1);
-      ctx.fillStyle="rgba(0,0,0,0.45)";
-      ctx.fillRect(e.x-w/2,e.y-e.r-18,w,h);
-      ctx.fillStyle="rgba(255,255,255,0.80)";
-      ctx.fillRect(e.x-w/2,e.y-e.r-18,w*hp,h);
-    }
-
-    // player (cyberpunk glow)
-    const pHue=170;
-    if(settings.neon) neonShadow(pHue,0.35,26);
-    ctx.fillStyle="rgba(60,255,210,0.92)";
-    ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur=0;
-
-    // armor ring
-    if(player.armor>0){
-      ctx.strokeStyle="rgba(140,60,255,0.30)";
-      ctx.lineWidth=6;
-      ctx.beginPath(); ctx.arc(player.x,player.y,player.r+8,0,Math.PI*2); ctx.stroke();
-    }
-
-    // bullets
-    for(const b of bullets){
-      if(settings.neon) neonShadow(b.hue||200,0.25,18);
-      ctx.fillStyle="rgba(255,235,160,0.95)";
-      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
-      ctx.shadowBlur=0;
-    }
-
-    // particles
-    for(const p of particles){
-      const hue=p.hue||200;
-      if(settings.neon) neonShadow(hue,0.20,14);
-      ctx.globalAlpha = clamp(p.life*4,0,1);
-      ctx.fillStyle = `hsla(${hue},100%,60%,0.95)`;
-      ctx.fillRect(p.x-2,p.y-2,4,4);
-      ctx.globalAlpha=1;
-      ctx.shadowBlur=0;
-    }
-
-    ctx.restore();
-
-    // toast
-    if(toastT>0){
-      toastT -= 1/60;
+    // Mission marker
+    if(mission.active){
       ctx.save();
-      ctx.globalAlpha=clamp(toastT,0,1);
-      ctx.fillStyle="rgba(0,0,0,0.45)";
-      const w=Math.min(540, innerWidth-40);
-      const x=(innerWidth-w)/2, y=70, r=18;
-      ctx.beginPath();
-      ctx.moveTo(x+r,y);
-      ctx.arcTo(x+w,y,x+w,y+46,r);
-      ctx.arcTo(x+w,y+46,x,y+46,r);
-      ctx.arcTo(x,y+46,x,y,r);
-      ctx.arcTo(x,y,x+w,y,r);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle="rgba(255,255,255,0.95)";
-      ctx.font="950 16px system-ui";
-      ctx.textAlign="center";
-      ctx.fillText(toastMsg, innerWidth/2, y+30);
+      ctx.translate(mission.x, mission.y);
+      const pulse = 0.6 + 0.4*Math.sin(t*6);
+      ctx.strokeStyle="rgba(60,255,210,0.9)";
+      ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(0,0, mission.r + pulse*5, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle="rgba(60,255,210,0.35)";
+      ctx.beginPath(); ctx.arc(0,0, mission.r, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
 
-    // top bar
-    const w=weapons[player.weaponSlot];
-    const ammoTxt = (player.weaponSlot===0) ? "∞" : `${player.mag}/${player.spare}`;
-    topEl.textContent = `LAZARO WORLD — ${w.id} (${ammoTxt}) • HP ${Math.floor(player.hp)} • Armor ${Math.floor(player.armor)} • Wave ${player.wave} • Score ${player.score} • Zone ${Math.floor(zone.r)}`;
+    // Cars
+    for(const car of cars){
+      ctx.save();
+      ctx.translate(car.x, car.y);
+      ctx.rotate(car.a);
 
-    // game over
-    if(player.hp<=0){
-      ctx.fillStyle="rgba(0,0,0,0.62)";
-      ctx.fillRect(0,0,innerWidth,innerHeight);
+      // body
+      ctx.fillStyle=car.color;
+      rectPix(-11,-7,22,14);
+
+      // windshield stripe
+      ctx.fillStyle="rgba(255,255,255,0.55)";
+      rectPix(-6,-3,12,6);
+
+      // wheels
+      ctx.fillStyle="rgba(0,0,0,0.6)";
+      rectPix(-10,-9,6,3);
+      rectPix(4,-9,6,3);
+      rectPix(-10,6,6,3);
+      rectPix(4,6,6,3);
+
+      // driver indicator
+      if(car.driver){
+        ctx.fillStyle="rgba(60,255,210,0.9)";
+        rectPix(-2,-2,4,4);
+      }
+      ctx.restore();
+    }
+
+    // Cops
+    for(const cop of cops){
+      ctx.save();
+      ctx.translate(cop.x, cop.y);
+      ctx.fillStyle="#3b82f6";
+      circlePix(0,0,cop.r);
+      ctx.fillStyle="rgba(255,255,255,0.7)";
+      rectPix(-4,-8,8,3);
+      ctx.restore();
+    }
+
+    // Player (pixel character)
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    // shadow
+    ctx.fillStyle="rgba(0,0,0,0.25)";
+    circlePix(0,8,6);
+    // body
+    ctx.fillStyle="#3cffcc";
+    rectPix(-5,-8,10,12);
+    // head
+    ctx.fillStyle="#ffd6a5";
+    rectPix(-4,-14,8,6);
+    // visor
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    rectPix(-3,-12,6,2);
+    ctx.restore();
+
+    ctx.restore(); // world
+
+    // UI text
+    topEl.textContent =
+      `LAZARO WORLD — HP ${player.hp|0} • $${player.money} • Wanted ${player.wanted.toFixed(1)} • ` +
+      `${player.inCar ? "IN CAR (E/ACTION to exit)" : "ON FOOT (E/ACTION to enter car)"}`;
+
+    hudEl.innerHTML =
+      `<b>Desktop:</b> WASD move • E action • R respawn • Space brake<br/>`+
+      `<b>Phone:</b> joystick move • ACTION enter/exit/mission • BRAKE<br/>`+
+      `<b>Mission:</b> go to glowing circle for cash. Causing chaos increases Wanted.`;
+
+    // Toast
+    if(toastT>0){
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, toastT);
+      ctx.fillStyle="rgba(0,0,0,0.55)";
+      const w = Math.min(520, innerWidth-40);
+      const x = (innerWidth-w)/2;
+      ctx.fillRect(x, 60, w, 44);
       ctx.fillStyle="rgba(255,255,255,0.95)";
-      ctx.font="1000 38px system-ui";
+      ctx.font="900 15px system-ui";
       ctx.textAlign="center";
-      ctx.fillText("YOU GOT WIPED 💀", innerWidth/2, innerHeight/2 - 18);
-      ctx.font="700 15px system-ui";
-      ctx.fillText("Refresh to restart • (Press Esc to menu anytime)", innerWidth/2, innerHeight/2 + 16);
+      ctx.fillText(toastMsg, innerWidth/2, 88);
+      ctx.restore();
+    }
+
+    // Minimap
+    drawMini();
+  }
+
+  function rectPix(x,y,w,h){
+    // crisp pixel edges
+    ctx.fillRect((x)|0,(y)|0,(w)|0,(h)|0);
+  }
+  function circlePix(x,y,r){
+    ctx.beginPath();
+    ctx.arc(x|0,y|0,r,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawMini(){
+    // show a small part of the world
+    mctx.clearRect(0,0,mini.width,mini.height);
+    mctx.fillStyle="rgba(0,0,0,0.25)";
+    mctx.fillRect(0,0,mini.width,mini.height);
+
+    const scaleX = mini.width / WORLD_W;
+    const scaleY = mini.height / WORLD_H;
+
+    // draw roads/buildings simplified
+    // (fast sampling)
+    const step = 6;
+    for(let y=0;y<MAP_H;y+=step){
+      for(let x=0;x<MAP_W;x+=step){
+        const t = map[idx(x,y)];
+        if(t===1) mctx.fillStyle="rgba(255,255,255,0.10)";
+        else if(t===4) mctx.fillStyle="rgba(0,0,0,0.18)";
+        else if(t===3) mctx.fillStyle="rgba(60,160,255,0.12)";
+        else continue;
+        mctx.fillRect(x*TILE*scaleX, y*TILE*scaleY, step*TILE*scaleX, step*TILE*scaleY);
+      }
+    }
+
+    // player
+    mctx.fillStyle="rgba(60,255,210,0.9)";
+    mctx.fillRect(player.x*scaleX-2, player.y*scaleY-2, 4, 4);
+
+    // cops
+    mctx.fillStyle="rgba(59,130,246,0.9)";
+    for(const cop of cops){
+      mctx.fillRect(cop.x*scaleX-1, cop.y*scaleY-1, 2, 2);
+    }
+
+    // mission
+    if(mission.active){
+      mctx.strokeStyle="rgba(60,255,210,0.7)";
+      mctx.beginPath();
+      mctx.arc(mission.x*scaleX, mission.y*scaleY, 6, 0, Math.PI*2);
+      mctx.stroke();
     }
   }
 
-  function roundRect(x,y,w,h,r){
-    const rr=Math.min(r,w/2,h/2);
-    ctx.beginPath();
-    ctx.moveTo(x+rr,y);
-    ctx.arcTo(x+w,y,x+w,y+h,rr);
-    ctx.arcTo(x+w,y+h,x,y+h,rr);
-    ctx.arcTo(x,y+h,x,y,rr);
-    ctx.arcTo(x,y,x+w,y,rr);
-    ctx.closePath();
-  }
-
-  // --------- Menu init ---------
-  menuEl.style.display="block";
-  howEl.style.display="none";
-
-  // Music state UI
-  if(settings.musicOn){
-    // must wait for user gesture in browsers; we won’t auto-start until click.
-    musicBtn.textContent="Music: OFF";
-  } else {
-    musicBtn.textContent="Music: OFF";
-  }
-
-  // helpful quick equip
-  document.getElementById('swap').textContent = weapons[player.weaponSlot].id;
-
-  // start loop
-  requestAnimationFrame(loop);
-
+  // Start
+  updateCam();
+  requestAnimationFrame(tick);
 })();
 </script>
 </body>
